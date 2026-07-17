@@ -35,8 +35,8 @@ export function CenterPanel({
   }
 
   return (
-    <section className="flex flex-1 flex-col bg-bg">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+    <section className="flex min-h-0 flex-1 flex-col bg-bg">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <Tabs
           items={[
             { value: 'pdf', label: 'PDF Diagram' },
@@ -48,7 +48,7 @@ export function CenterPanel({
         <span className="font-mono text-xs text-text-muted">{sld.filename}</span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
         {activeTab === 'pdf' ? (
           <PdfViewer sldId={sld.id} filename={sld.filename} />
         ) : (
@@ -56,7 +56,7 @@ export function CenterPanel({
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-border px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between border-t border-border px-5 py-3">
         <div className="flex gap-2">
           <Button variant="success" size="sm" onClick={onApprove}>
             <Check className="h-3.5 w-3.5" />

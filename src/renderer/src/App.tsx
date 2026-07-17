@@ -51,7 +51,9 @@ function App(): React.JSX.Element {
   }
 
   const handleDeleteSld = async (sld: Sld): Promise<void> => {
-    const confirmed = window.confirm(`Delete ${sld.filename}? This can't be undone from the UI.`)
+    const confirmed = window.confirm(
+      `Remove ${sld.filename} from this project? This can't be undone from the UI.`
+    )
     if (!confirmed) return
     await deleteSld.mutateAsync({ sldId: sld.id, projectId: sld.projectId })
     if (selectedSldId === sld.id) clearSld()

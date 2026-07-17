@@ -1,26 +1,42 @@
-import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { useSldFile } from '@renderer/state/queries/useSldFile'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 6
+const ZOOM_STEP = 1.2
 
 interface PdfViewerProps {
   sldId: string
   filename: string
 }
 
+interface Point {
+  x: number
+  y: number
+}
+
 export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError } = useSldFile(sldId)
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const dragRef = useRef<{ start: Point; pan: Point } | null>(null)
+
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
-  const [scale, setScale] = useState(1.1)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
   const [renderError, setRenderError] = useState<string | null>(null)
 
+  // Load the document whenever the file bytes change.
   useEffect(() => {
     if (!fileBytes) return
     let cancelled = false
@@ -43,21 +59,37 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     }
   }, [fileBytes])
 
-  useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return
+  // Render the current page sized to fit the container, and re-center the view.
+  const renderPage = useCallback((): (() => void) => {
+    if (!pdfDoc || !containerRef.current || !canvasRef.current) return () => {}
     let cancelled = false
     let renderTask: RenderTask | null = null
 
     pdfDoc
       .getPage(pageNumber)
       .then((page) => {
-        if (cancelled || !canvasRef.current) return
-        const viewport = page.getViewport({ scale })
+        if (cancelled || !containerRef.current || !canvasRef.current) return
+        const unscaled = page.getViewport({ scale: 1 })
+        const availableWidth = containerRef.current.clientWidth - 32
+        const availableHeight = containerRef.current.clientHeight - 32
+        const fitScale = Math.min(
+          availableWidth / unscaled.width,
+          availableHeight / unscaled.height
+        )
+        const viewport = page.getViewport({ scale: Math.max(fitScale, 0.1) })
+
         const canvas = canvasRef.current
         const context = canvas.getContext('2d')
         if (!context) return
         canvas.width = viewport.width
         canvas.height = viewport.height
+
+        setZoom(1)
+        setPan({
+          x: (containerRef.current.clientWidth - viewport.width) / 2,
+          y: (containerRef.current.clientHeight - viewport.height) / 2
+        })
+
         renderTask = page.render({ canvasContext: context, viewport })
         return renderTask.promise
       })
@@ -69,7 +101,85 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
       cancelled = true
       renderTask?.cancel()
     }
-  }, [pdfDoc, pageNumber, scale])
+  }, [pdfDoc, pageNumber])
+
+  useEffect(() => renderPage(), [renderPage])
+
+  // Keep the fit sized to the panel as the app window / layout changes size.
+  useEffect(() => {
+    if (!containerRef.current) return
+    let timeout: ReturnType<typeof setTimeout>
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timeout)
+      timeout = setTimeout(renderPage, 150)
+    })
+    observer.observe(containerRef.current)
+    return () => {
+      clearTimeout(timeout)
+      observer.disconnect()
+    }
+  }, [renderPage])
+
+  const handleWheel = (e: React.WheelEvent): void => {
+    e.preventDefault()
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    const direction = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP
+
+    setZoom((prevZoom) => {
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
+      setPan((prevPan) => ({
+        x: mouseX - ((mouseX - prevPan.x) / prevZoom) * newZoom,
+        y: mouseY - ((mouseY - prevPan.y) / prevZoom) * newZoom
+      }))
+      return newZoom
+    })
+  }
+
+  const zoomBy = (direction: number): void => {
+    setZoom((prevZoom) => {
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
+      if (containerRef.current) {
+        const centerX = containerRef.current.clientWidth / 2
+        const centerY = containerRef.current.clientHeight / 2
+        setPan((prevPan) => ({
+          x: centerX - ((centerX - prevPan.x) / prevZoom) * newZoom,
+          y: centerY - ((centerY - prevPan.y) / prevZoom) * newZoom
+        }))
+      }
+      return newZoom
+    })
+  }
+
+  const handleMouseDown = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    dragRef.current = { start: { x: e.clientX, y: e.clientY }, pan }
+    setIsDragging(true)
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMove = (e: MouseEvent): void => {
+      if (!dragRef.current) return
+      const { start, pan: panStart } = dragRef.current
+      setPan({ x: panStart.x + (e.clientX - start.x), y: panStart.y + (e.clientY - start.y) })
+    }
+    const handleUp = (): void => {
+      dragRef.current = null
+      setIsDragging(false)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [isDragging])
 
   if (isLoading) {
     return (
@@ -90,8 +200,8 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -114,19 +224,42 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setScale((s) => Math.max(0.4, s - 0.2))}>
+          <Button variant="ghost" size="sm" onClick={() => zoomBy(1 / ZOOM_STEP)} title="Zoom out">
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
-          <span className="w-10 text-center font-mono text-xs text-text-secondary">
-            {Math.round(scale * 100)}%
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setScale((s) => Math.min(3, s + 0.2))}>
+          <button
+            onClick={renderPage}
+            className="w-12 text-center font-mono text-xs text-text-secondary hover:text-text-primary"
+            title="Fit to view"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button variant="ghost" size="sm" onClick={() => zoomBy(ZOOM_STEP)} title="Zoom in">
             <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={renderPage} title="Fit to view">
+            <Maximize2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
-      <div className="flex flex-1 items-start justify-center overflow-auto p-4">
-        <canvas ref={canvasRef} className="shadow-lg" />
+      <div
+        ref={containerRef}
+        className={cn(
+          'relative min-h-0 flex-1 select-none overflow-hidden',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        )}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+      >
+        <canvas
+          ref={canvasRef}
+          draggable={false}
+          className="absolute left-0 top-0 shadow-lg"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '0 0'
+          }}
+        />
       </div>
     </div>
   )
