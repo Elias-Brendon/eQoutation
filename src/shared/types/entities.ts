@@ -9,6 +9,13 @@ export interface Project {
   name: string
   substationLabel: string
   aiProgressPct: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateProjectInput {
+  name: string
+  substationLabel?: string
 }
 
 export interface Sld {
@@ -17,6 +24,14 @@ export interface Sld {
   filename: string
   sectionGroup: string
   status: SldStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateSldInput {
+  projectId: string
+  filename: string
+  sectionGroup?: string
 }
 
 export interface QuotationLine {

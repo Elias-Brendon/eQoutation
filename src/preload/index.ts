@@ -1,8 +1,22 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { IPC } from '../shared/types/ipc-contract'
+import type { CreateProjectInput, CreateSldInput, Project, Sld } from '../shared/types/entities'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  projects: {
+    list: (): Promise<Project[]> => ipcRenderer.invoke(IPC.projectsList),
+    create: (input: CreateProjectInput): Promise<Project> =>
+      ipcRenderer.invoke(IPC.projectsCreate, input)
+  },
+  slds: {
+    listByProject: (projectId: string): Promise<Sld[]> =>
+      ipcRenderer.invoke(IPC.sldsListByProject, projectId),
+    create: (input: CreateSldInput): Promise<Sld> => ipcRenderer.invoke(IPC.sldsCreate, input)
+  }
+}
+
+export type Api = typeof api
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

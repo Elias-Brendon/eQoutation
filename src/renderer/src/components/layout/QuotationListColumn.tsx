@@ -21,6 +21,11 @@ export function QuotationListColumn({
       <div className="px-4 py-3 font-mono text-[11px] tracking-wider text-text-muted">
         QUOTATIONS
       </div>
+      {quotations.length === 0 && (
+        <div className="px-4 py-6 text-center text-xs text-text-muted">
+          No quotations yet — generated once AI extraction lands in Stage 6/7.
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         <div className="flex flex-col gap-1.5">
           {quotations.map((quotation) => {

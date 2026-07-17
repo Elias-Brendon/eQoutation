@@ -2,18 +2,23 @@ import { create } from 'zustand'
 import type { CenterTab } from '@shared/types/entities'
 
 interface UiState {
+  selectedProjectId: string | null
   selectedSldId: string | null
   selectedQuotationId: string | null
   activeTab: CenterTab
+  selectProject: (projectId: string) => void
   selectSld: (sldId: string, quotationId: string | null) => void
   selectQuotation: (quotationId: string, sldId: string) => void
   setActiveTab: (tab: CenterTab) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
+  selectedProjectId: null,
   selectedSldId: null,
   selectedQuotationId: null,
   activeTab: 'pdf',
+  selectProject: (projectId): void =>
+    set({ selectedProjectId: projectId, selectedSldId: null, selectedQuotationId: null }),
   selectSld: (sldId, quotationId): void =>
     set({ selectedSldId: sldId, selectedQuotationId: quotationId }),
   selectQuotation: (quotationId, sldId): void =>
