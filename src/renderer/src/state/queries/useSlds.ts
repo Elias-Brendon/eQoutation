@@ -5,7 +5,7 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
-import type { CreateSldInput, Sld } from '@shared/types/entities'
+import type { Sld, UploadSldInput } from '@shared/types/entities'
 
 export const sldsQueryKey = (projectId: string): readonly [string, string] => ['slds', projectId]
 
@@ -17,10 +17,25 @@ export function useSlds(projectId: string | null): UseQueryResult<Sld[]> {
   })
 }
 
-export function useCreateSld(): UseMutationResult<Sld, Error, CreateSldInput> {
+export function useUploadSld(): UseMutationResult<Sld | null, Error, UploadSldInput> {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: CreateSldInput) => window.api.slds.create(input),
-    onSuccess: (sld) => queryClient.invalidateQueries({ queryKey: sldsQueryKey(sld.projectId) })
+    mutationFn: (input: UploadSldInput) => window.api.slds.upload(input),
+    onSuccess: (sld) => {
+      if (sld) queryClient.invalidateQueries({ queryKey: sldsQueryKey(sld.projectId) })
+    }
+  })
+}
+
+export function useDeleteSld(): UseMutationResult<
+  void,
+  Error,
+  { sldId: string; projectId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sldId }) => window.api.slds.delete(sldId),
+    onSuccess: (_data, { projectId }) =>
+      queryClient.invalidateQueries({ queryKey: sldsQueryKey(projectId) })
   })
 }

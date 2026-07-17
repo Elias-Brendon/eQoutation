@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../shared/types/ipc-contract'
-import type { CreateProjectInput, CreateSldInput, Project, Sld } from '../shared/types/entities'
+import type { CreateProjectInput, Project, Sld, UploadSldInput } from '../shared/types/entities'
 
 const api = {
   projects: {
@@ -12,7 +12,10 @@ const api = {
   slds: {
     listByProject: (projectId: string): Promise<Sld[]> =>
       ipcRenderer.invoke(IPC.sldsListByProject, projectId),
-    create: (input: CreateSldInput): Promise<Sld> => ipcRenderer.invoke(IPC.sldsCreate, input)
+    upload: (input: UploadSldInput): Promise<Sld | null> =>
+      ipcRenderer.invoke(IPC.sldsUpload, input),
+    delete: (sldId: string): Promise<void> => ipcRenderer.invoke(IPC.sldsDelete, sldId),
+    readFile: (sldId: string): Promise<Uint8Array> => ipcRenderer.invoke(IPC.sldsReadFile, sldId)
   }
 }
 

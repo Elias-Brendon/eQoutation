@@ -1,4 +1,4 @@
-import { FileText, Plus } from 'lucide-react'
+import { FileText, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { Badge } from '@renderer/components/common/Badge'
 import { Button } from '@renderer/components/common/Button'
@@ -10,6 +10,7 @@ interface SldListColumnProps {
   selectedSldId: string | null
   onSelect: (sldId: string) => void
   onAddSld: () => void
+  onDeleteSld: (sld: Sld) => void
   addDisabled?: boolean
 }
 
@@ -18,6 +19,7 @@ export function SldListColumn({
   selectedSldId,
   onSelect,
   onAddSld,
+  onDeleteSld,
   addDisabled
 }: SldListColumnProps): React.JSX.Element {
   const groups = groupBySection(slds)
@@ -61,11 +63,14 @@ export function SldListColumn({
                 const meta = sldStatusMeta[sld.status]
                 const selected = sld.id === selectedSldId
                 return (
-                  <button
+                  <div
                     key={sld.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelect(sld.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && onSelect(sld.id)}
                     className={cn(
-                      'flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors cursor-pointer',
+                      'group flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors cursor-pointer',
                       selected
                         ? 'bg-surface-raised text-text-primary'
                         : 'text-text-secondary hover:bg-surface-hover'
@@ -74,7 +79,17 @@ export function SldListColumn({
                     <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                     <span className="flex-1 truncate font-mono text-xs">{sld.filename}</span>
                     <Badge tone={meta.tone}>{meta.label}</Badge>
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteSld(sld)
+                      }}
+                      className="-m-1.5 rounded p-1.5 text-text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                      title="Delete SLD"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )
               })}
             </div>

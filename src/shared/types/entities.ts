@@ -22,15 +22,15 @@ export interface Sld {
   id: string
   projectId: string
   filename: string
+  filePath: string
   sectionGroup: string
   status: SldStatus
   createdAt: string
   updatedAt: string
 }
 
-export interface CreateSldInput {
+export interface UploadSldInput {
   projectId: string
-  filename: string
   sectionGroup?: string
 }
 

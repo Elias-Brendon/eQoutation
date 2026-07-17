@@ -7,7 +7,8 @@ import { CreateProjectDialog } from '@renderer/components/layout/CreateProjectDi
 import { AddSldDialog } from '@renderer/components/layout/AddSldDialog'
 import { useUiStore } from '@renderer/state/useUiStore'
 import { useProjects } from '@renderer/state/queries/useProjects'
-import { useSlds } from '@renderer/state/queries/useSlds'
+import { useDeleteSld, useSlds, useUploadSld } from '@renderer/state/queries/useSlds'
+import type { Sld } from '@shared/types/entities'
 
 function App(): React.JSX.Element {
   const {
@@ -17,11 +18,14 @@ function App(): React.JSX.Element {
     activeTab,
     selectProject,
     selectSld,
+    clearSld,
     setActiveTab
   } = useUiStore()
 
   const { data: projects = [] } = useProjects()
   const { data: slds = [] } = useSlds(selectedProjectId)
+  const uploadSld = useUploadSld()
+  const deleteSld = useDeleteSld()
 
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [addSldOpen, setAddSldOpen] = useState(false)
@@ -46,13 +50,20 @@ function App(): React.JSX.Element {
     selectSld(sldId, null)
   }
 
+  const handleDeleteSld = async (sld: Sld): Promise<void> => {
+    const confirmed = window.confirm(`Delete ${sld.filename}? This can't be undone from the UI.`)
+    if (!confirmed) return
+    await deleteSld.mutateAsync({ sldId: sld.id, projectId: sld.projectId })
+    if (selectedSldId === sld.id) clearSld()
+  }
+
   return (
     <div className="flex h-screen flex-col bg-bg text-text-primary">
       <TopBar
         project={selectedProject}
         aiFlagCount={aiFlagCount}
         manualFlagCount={manualFlagCount}
-        onUploadClick={() => console.log('Upload PDF — wired in Stage 3')}
+        onUploadClick={() => selectedProject && uploadSld.mutate({ projectId: selectedProject.id })}
         onNewProject={() => setCreateProjectOpen(true)}
       />
       <div className="flex flex-1 overflow-hidden">
@@ -61,6 +72,7 @@ function App(): React.JSX.Element {
           selectedSldId={selectedSldId}
           onSelect={handleSelectSld}
           onAddSld={() => setAddSldOpen(true)}
+          onDeleteSld={handleDeleteSld}
           addDisabled={!selectedProject}
         />
         <CenterPanel

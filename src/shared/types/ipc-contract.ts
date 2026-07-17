@@ -2,5 +2,7 @@ export const IPC = {
   projectsList: 'projects:list',
   projectsCreate: 'projects:create',
   sldsListByProject: 'slds:listByProject',
-  sldsCreate: 'slds:create'
+  sldsUpload: 'slds:upload',
+  sldsDelete: 'slds:delete',
+  sldsReadFile: 'slds:readFile'
 } as const

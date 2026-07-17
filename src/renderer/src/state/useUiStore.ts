@@ -8,6 +8,7 @@ interface UiState {
   activeTab: CenterTab
   selectProject: (projectId: string) => void
   selectSld: (sldId: string, quotationId: string | null) => void
+  clearSld: () => void
   selectQuotation: (quotationId: string, sldId: string) => void
   setActiveTab: (tab: CenterTab) => void
 }
@@ -21,6 +22,7 @@ export const useUiStore = create<UiState>((set) => ({
     set({ selectedProjectId: projectId, selectedSldId: null, selectedQuotationId: null }),
   selectSld: (sldId, quotationId): void =>
     set({ selectedSldId: sldId, selectedQuotationId: quotationId }),
+  clearSld: (): void => set({ selectedSldId: null, selectedQuotationId: null }),
   selectQuotation: (quotationId, sldId): void =>
     set({ selectedQuotationId: quotationId, selectedSldId: sldId, activeTab: 'quotation' }),
   setActiveTab: (tab): void => set({ activeTab: tab })

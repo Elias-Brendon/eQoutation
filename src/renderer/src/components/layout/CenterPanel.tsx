@@ -50,7 +50,7 @@ export function CenterPanel({
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         {activeTab === 'pdf' ? (
-          <PdfViewer filename={sld.filename} />
+          <PdfViewer sldId={sld.id} filename={sld.filename} />
         ) : (
           <QuotationTable lines={quotation?.lines ?? []} />
         )}
