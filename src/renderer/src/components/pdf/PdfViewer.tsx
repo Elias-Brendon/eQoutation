@@ -1,17 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Loader2, Maximize2, ZoomIn, ZoomOut } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eraser,
+  Hand,
+  Loader2,
+  Maximize2,
+  MessageCirclePlus,
+  Pencil,
+  Undo2,
+  ZoomIn,
+  ZoomOut
+} from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
+import { AnnotationCanvas } from '@renderer/components/pdf/AnnotationCanvas'
 import { useSldFile } from '@renderer/state/queries/useSldFile'
+import {
+  useAnnotations,
+  useCreateAnnotation,
+  useDeleteAnnotation
+} from '@renderer/state/queries/useAnnotations'
+import type { Annotation, AnnotationPoint } from '@shared/types/entities'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 6
 const ZOOM_STEP = 1.2
+
+const ANNOTATION_COLORS = ['#ef4444', '#f2652c', '#eab308', '#6b8ee8']
+
+type Tool = 'pan' | 'pen' | 'pin'
 
 interface PdfViewerProps {
   sldId: string
@@ -28,13 +51,23 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragRef = useRef<{ start: Point; pan: Point } | null>(null)
+  const strokeRef = useRef<AnnotationPoint[]>([])
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [renderError, setRenderError] = useState<string | null>(null)
+
+  const [tool, setTool] = useState<Tool>('pan')
+  const [color, setColor] = useState(ANNOTATION_COLORS[0])
+  const [liveStroke, setLiveStroke] = useState<AnnotationPoint[] | null>(null)
+
+  const { data: annotations = [] } = useAnnotations(sldId, pageNumber)
+  const createAnnotation = useCreateAnnotation()
+  const deleteAnnotation = useDeleteAnnotation()
 
   // Load the document whenever the file bytes change.
   useEffect(() => {
@@ -83,6 +116,7 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
         if (!context) return
         canvas.width = viewport.width
         canvas.height = viewport.height
+        setViewportSize({ width: viewport.width, height: viewport.height })
 
         setZoom(1)
         setPan({
@@ -120,6 +154,15 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     }
   }, [renderPage])
 
+  const screenToNormalized = (clientX: number, clientY: number): AnnotationPoint | null => {
+    const container = containerRef.current
+    if (!container || viewportSize.width === 0 || viewportSize.height === 0) return null
+    const rect = container.getBoundingClientRect()
+    const localX = (clientX - rect.left - pan.x) / zoom
+    const localY = (clientY - rect.top - pan.y) / zoom
+    return { x: localX / viewportSize.width, y: localY / viewportSize.height }
+  }
+
   const handleWheel = (e: React.WheelEvent): void => {
     e.preventDefault()
     const container = containerRef.current
@@ -156,10 +199,36 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
 
   const handleMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault()
-    dragRef.current = { start: { x: e.clientX, y: e.clientY }, pan }
-    setIsDragging(true)
+
+    if (tool === 'pan') {
+      dragRef.current = { start: { x: e.clientX, y: e.clientY }, pan }
+      setIsDragging(true)
+      return
+    }
+
+    const point = screenToNormalized(e.clientX, e.clientY)
+    if (!point) return
+
+    if (tool === 'pin') {
+      const commentText = window.prompt('Comment for this pin:')
+      if (!commentText || !commentText.trim()) return
+      createAnnotation.mutate({
+        sldId,
+        pageNumber,
+        shapeType: 'pin',
+        points: [point],
+        color,
+        commentText: commentText.trim()
+      })
+      return
+    }
+
+    // tool === 'pen'
+    strokeRef.current = [point]
+    setLiveStroke([point])
   }
 
+  // Pan dragging: track globally so it keeps working outside the container bounds.
   useEffect(() => {
     if (!isDragging) return
 
@@ -181,6 +250,59 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     }
   }, [isDragging])
 
+  // Freehand drawing: track globally so a fast stroke isn't cut off by leaving the container.
+  useEffect(() => {
+    if (tool !== 'pen' || !liveStroke) return
+
+    const handleMove = (e: MouseEvent): void => {
+      const point = screenToNormalized(e.clientX, e.clientY)
+      if (!point) return
+      strokeRef.current = [...strokeRef.current, point]
+      setLiveStroke(strokeRef.current)
+    }
+    const handleUp = (): void => {
+      if (strokeRef.current.length > 1) {
+        createAnnotation.mutate({
+          sldId,
+          pageNumber,
+          shapeType: 'freehand',
+          points: strokeRef.current,
+          color
+        })
+      }
+      strokeRef.current = []
+      setLiveStroke(null)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, liveStroke === null])
+
+  const handlePinClick = (annotation: Annotation): void => {
+    const shouldDelete = window.confirm(`${annotation.commentText}\n\nDelete this comment?`)
+    if (shouldDelete) {
+      deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+    }
+  }
+
+  const handleUndo = (): void => {
+    const last = annotations[annotations.length - 1]
+    if (last) deleteAnnotation.mutate({ id: last.id, sldId, pageNumber })
+  }
+
+  const handleClearPage = (): void => {
+    if (annotations.length === 0) return
+    if (!window.confirm(`Clear all ${annotations.length} annotation(s) on this page?`)) return
+    for (const annotation of annotations) {
+      deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-surface text-text-muted">
@@ -201,7 +323,7 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface">
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -223,6 +345,66 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant={tool === 'pan' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('pan')}
+            title="Pan"
+          >
+            <Hand className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={tool === 'pen' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('pen')}
+            title="Draw"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={tool === 'pin' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('pin')}
+            title="Add comment pin"
+          >
+            <MessageCirclePlus className="h-3.5 w-3.5" />
+          </Button>
+          <div className="mx-1 flex items-center gap-1">
+            {ANNOTATION_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                className={cn(
+                  'h-4 w-4 rounded-full border-2 transition-transform',
+                  color === c ? 'scale-110 border-white' : 'border-transparent'
+                )}
+                style={{ backgroundColor: c }}
+                title={c}
+              />
+            ))}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUndo}
+            disabled={annotations.length === 0}
+            title="Undo last annotation"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearPage}
+            disabled={annotations.length === 0}
+            title="Clear annotations on this page"
+          >
+            <Eraser className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => zoomBy(1 / ZOOM_STEP)} title="Zoom out">
             <ZoomOut className="h-3.5 w-3.5" />
@@ -246,20 +428,29 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
         ref={containerRef}
         className={cn(
           'relative min-h-0 flex-1 select-none overflow-hidden',
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          tool === 'pan' && (isDragging ? 'cursor-grabbing' : 'cursor-grab'),
+          tool !== 'pan' && 'cursor-crosshair'
         )}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
       >
-        <canvas
-          ref={canvasRef}
-          draggable={false}
-          className="absolute left-0 top-0 shadow-lg"
+        <div
+          className="absolute left-0 top-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: '0 0'
           }}
-        />
+        >
+          <canvas ref={canvasRef} draggable={false} className="absolute left-0 top-0 shadow-lg" />
+          <AnnotationCanvas
+            width={viewportSize.width}
+            height={viewportSize.height}
+            annotations={annotations}
+            liveStroke={liveStroke}
+            liveColor={color}
+            onPinClick={handlePinClick}
+          />
+        </div>
       </div>
     </div>
   )

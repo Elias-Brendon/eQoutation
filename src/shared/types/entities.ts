@@ -56,3 +56,32 @@ export interface Flag {
   description: string
   status: FlagStatus
 }
+
+export type AnnotationShapeType = 'freehand' | 'pin'
+export type AnnotationAuthorType = 'human' | 'ai'
+
+export interface AnnotationPoint {
+  x: number
+  y: number
+}
+
+export interface Annotation {
+  id: string
+  sldId: string
+  pageNumber: number
+  authorType: AnnotationAuthorType
+  shapeType: AnnotationShapeType
+  points: AnnotationPoint[]
+  color: string
+  commentText: string | null
+  createdAt: string
+}
+
+export interface CreateAnnotationInput {
+  sldId: string
+  pageNumber: number
+  shapeType: AnnotationShapeType
+  points: AnnotationPoint[]
+  color: string
+  commentText?: string
+}

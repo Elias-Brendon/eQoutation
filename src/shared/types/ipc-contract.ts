@@ -4,5 +4,8 @@ export const IPC = {
   sldsListByProject: 'slds:listByProject',
   sldsUpload: 'slds:upload',
   sldsDelete: 'slds:delete',
-  sldsReadFile: 'slds:readFile'
+  sldsReadFile: 'slds:readFile',
+  annotationsListBySldAndPage: 'annotations:listBySldAndPage',
+  annotationsCreate: 'annotations:create',
+  annotationsDelete: 'annotations:delete'
 } as const
