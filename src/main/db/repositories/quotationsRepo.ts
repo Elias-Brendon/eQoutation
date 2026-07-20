@@ -200,3 +200,17 @@ export function setQuotationExcelPath(id: string, filePath: string): void {
     .prepare('UPDATE quotations SET excel_file_path = ?, updated_at = ? WHERE id = ?')
     .run(filePath, new Date().toISOString(), id)
 }
+
+function setQuotationStatus(id: string, status: QuotationStatus): void {
+  getDb()
+    .prepare('UPDATE quotations SET status = ?, updated_at = ? WHERE id = ?')
+    .run(status, new Date().toISOString(), id)
+}
+
+export function approveQuotation(id: string): void {
+  setQuotationStatus(id, 'approved')
+}
+
+export function rejectQuotation(id: string): void {
+  setQuotationStatus(id, 'rejected')
+}

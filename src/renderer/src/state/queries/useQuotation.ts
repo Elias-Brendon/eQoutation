@@ -5,12 +5,18 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
-import type { Quotation } from '@shared/types/entities'
+import type { Quotation, QuotationComment } from '@shared/types/entities'
+import { sldsQueryKey } from './useSlds'
+import { flagsQueryKey } from './useFlags'
 
 const quotationQueryKey = (sldId: string): readonly [string, string] => ['quotation', sldId]
 const projectQuotationsQueryKey = (projectId: string): readonly [string, string] => [
   'quotations',
   projectId
+]
+const quotationCommentsQueryKey = (quotationId: string): readonly [string, string] => [
+  'quotationComments',
+  quotationId
 ]
 
 export function useQuotation(sldId: string | null): UseQueryResult<Quotation | null> {
@@ -36,6 +42,8 @@ export function useGenerateQuotation(): UseMutationResult<Quotation, Error, stri
     onSuccess: (quotation) => {
       queryClient.setQueryData(quotationQueryKey(quotation.sldId), quotation)
       queryClient.invalidateQueries({ queryKey: ['quotations'] })
+      queryClient.invalidateQueries({ queryKey: ['flagCounts'] })
+      queryClient.invalidateQueries({ queryKey: flagsQueryKey(quotation.id) })
     }
   })
 }
@@ -50,6 +58,71 @@ export function useExportQuotation(): UseMutationResult<
     mutationFn: ({ quotationId }) => window.api.quotations.export(quotationId),
     onSuccess: (quotation, { sldId }) => {
       queryClient.setQueryData(quotationQueryKey(sldId), quotation)
+    }
+  })
+}
+
+interface QuotationReviewVariables {
+  quotationId: string
+  sldId: string
+  projectId: string
+  comment?: string
+}
+
+function invalidateAfterReview(
+  queryClient: ReturnType<typeof useQueryClient>,
+  quotation: Quotation,
+  variables: QuotationReviewVariables
+): void {
+  queryClient.setQueryData(quotationQueryKey(variables.sldId), quotation)
+  queryClient.invalidateQueries({ queryKey: ['quotations'] })
+  queryClient.invalidateQueries({ queryKey: sldsQueryKey(variables.projectId) })
+}
+
+export function useApproveQuotation(): UseMutationResult<
+  Quotation,
+  Error,
+  QuotationReviewVariables
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, comment }) => window.api.quotations.approve(quotationId, comment),
+    onSuccess: (quotation, variables) => invalidateAfterReview(queryClient, quotation, variables)
+  })
+}
+
+export function useRejectQuotation(): UseMutationResult<
+  Quotation,
+  Error,
+  QuotationReviewVariables
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, comment }) => window.api.quotations.reject(quotationId, comment),
+    onSuccess: (quotation, variables) => invalidateAfterReview(queryClient, quotation, variables)
+  })
+}
+
+export function useQuotationComments(
+  quotationId: string | null
+): UseQueryResult<QuotationComment[]> {
+  return useQuery({
+    queryKey: quotationCommentsQueryKey(quotationId ?? ''),
+    queryFn: () => window.api.quotations.listComments(quotationId as string),
+    enabled: quotationId !== null
+  })
+}
+
+export function useAddQuotationComment(): UseMutationResult<
+  QuotationComment,
+  Error,
+  { quotationId: string; body: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, body }) => window.api.quotations.addComment(quotationId, body),
+    onSuccess: (_comment, { quotationId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationCommentsQueryKey(quotationId) })
     }
   })
 }

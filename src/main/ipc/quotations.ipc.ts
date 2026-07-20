@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { ipcMain, shell } from 'electron'
-import { getSldById } from '../db/repositories/sldsRepo'
+import { getSldById, updateSldStatus } from '../db/repositories/sldsRepo'
 import { getProjectById } from '../db/repositories/projectsRepo'
 import { getLatestExtractionForSld } from '../db/repositories/extractionsRepo'
 import { getAllCatalogItems } from '../db/repositories/catalogRepo'
@@ -10,12 +10,16 @@ import {
   getQuotationById,
   listQuotationsByProject,
   setQuotationExcelPath,
+  approveQuotation,
+  rejectQuotation,
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
+import { createFlags, type CreateFlagInput } from '../db/repositories/flagsRepo'
+import { addComment, listComments } from '../db/repositories/quotationCommentsRepo'
 import { matchComponent } from '../quotation/catalogMatcher'
 import { writeQuotationWorkbook } from '../quotation/quotationExcelBuilder'
 import { IPC } from '@shared/types/ipc-contract'
-import type { Quotation } from '@shared/types/entities'
+import type { Quotation, QuotationComment } from '@shared/types/entities'
 
 const DEFAULT_MARGIN = 1.35
 
@@ -59,7 +63,39 @@ export function registerQuotationsIpc(): void {
       }
     })
 
-    return createQuotationWithLines(sldId, extraction.id, generateQuotationCode(), lineInputs)
+    updateSldStatus(sldId, 'in_progress')
+
+    const quotation = createQuotationWithLines(
+      sldId,
+      extraction.id,
+      generateQuotationCode(),
+      lineInputs
+    )
+
+    const flagInputs: CreateFlagInput[] = []
+    for (const line of quotation.lines) {
+      if (line.matchStatus === 'unknown') {
+        flagInputs.push({
+          quotationLineId: line.id,
+          origin: 'matcher',
+          severity: 'warning',
+          message: `Unmatched item: "${line.description}" (page ${line.pageNumber}) — no catalog match found.`,
+          pageNumber: line.pageNumber
+        })
+      }
+    }
+    for (const flag of extraction.flags) {
+      flagInputs.push({
+        quotationLineId: null,
+        origin: 'ai',
+        severity: flag.severity,
+        message: flag.message,
+        pageNumber: flag.pageNumber
+      })
+    }
+    if (flagInputs.length > 0) createFlags(quotation.id, flagInputs)
+
+    return quotation
   })
 
   ipcMain.handle(IPC.quotationsGetBySld, (_event, sldId: string) => getLatestQuotationForSld(sldId))
@@ -82,4 +118,41 @@ export function registerQuotationsIpc(): void {
 
     return { ...quotation, excelFilePath: filePath }
   })
+
+  ipcMain.handle(
+    IPC.quotationsApprove,
+    (_event, quotationId: string, comment?: string): Quotation => {
+      const quotation = getQuotationById(quotationId)
+      if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+
+      approveQuotation(quotationId)
+      updateSldStatus(quotation.sldId, 'done')
+      if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
+
+      return getQuotationById(quotationId) as Quotation
+    }
+  )
+
+  ipcMain.handle(
+    IPC.quotationsReject,
+    (_event, quotationId: string, comment?: string): Quotation => {
+      const quotation = getQuotationById(quotationId)
+      if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+
+      rejectQuotation(quotationId)
+      updateSldStatus(quotation.sldId, 'rejected')
+      if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
+
+      return getQuotationById(quotationId) as Quotation
+    }
+  )
+
+  ipcMain.handle(
+    IPC.quotationsAddComment,
+    (_event, quotationId: string, body: string): QuotationComment => addComment(quotationId, body)
+  )
+
+  ipcMain.handle(IPC.quotationsListComments, (_event, quotationId: string) =>
+    listComments(quotationId)
+  )
 }

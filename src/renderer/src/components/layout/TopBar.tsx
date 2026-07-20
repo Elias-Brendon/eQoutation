@@ -6,6 +6,7 @@ import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
 
 interface TopBarProps {
   project: Project | null
+  matcherFlagCount: number
   aiFlagCount: number
   manualFlagCount: number
   extractionProgress: ExtractionProgressEvent | null
@@ -16,6 +17,7 @@ interface TopBarProps {
 
 export function TopBar({
   project,
+  matcherFlagCount,
   aiFlagCount,
   manualFlagCount,
   extractionProgress,
@@ -62,6 +64,10 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-warning">
+          <Flag className="h-3 w-3" />
+          {matcherFlagCount} Matcher
+        </span>
         <span className="inline-flex items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-danger">
           <Flag className="h-3 w-3" />
           {aiFlagCount} AI

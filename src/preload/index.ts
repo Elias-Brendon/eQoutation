@@ -10,8 +10,12 @@ import type {
   CreateProjectInput,
   Extraction,
   ExtractionProgressEvent,
+  Flag,
+  FlagOriginCounts,
   Project,
   Quotation,
+  QuotationComment,
+  RaiseFlagInput,
   Sld,
   UploadSldInput
 } from '../shared/types/entities'
@@ -62,7 +66,24 @@ const api = {
     listByProject: (projectId: string): Promise<Quotation[]> =>
       ipcRenderer.invoke(IPC.quotationsListByProject, projectId),
     export: (quotationId: string): Promise<Quotation> =>
-      ipcRenderer.invoke(IPC.quotationsExport, quotationId)
+      ipcRenderer.invoke(IPC.quotationsExport, quotationId),
+    approve: (quotationId: string, comment?: string): Promise<Quotation> =>
+      ipcRenderer.invoke(IPC.quotationsApprove, quotationId, comment),
+    reject: (quotationId: string, comment?: string): Promise<Quotation> =>
+      ipcRenderer.invoke(IPC.quotationsReject, quotationId, comment),
+    addComment: (quotationId: string, body: string): Promise<QuotationComment> =>
+      ipcRenderer.invoke(IPC.quotationsAddComment, quotationId, body),
+    listComments: (quotationId: string): Promise<QuotationComment[]> =>
+      ipcRenderer.invoke(IPC.quotationsListComments, quotationId)
+  },
+  flags: {
+    listByQuotation: (quotationId: string): Promise<Flag[]> =>
+      ipcRenderer.invoke(IPC.flagsListByQuotation, quotationId),
+    countOpenByProject: (projectId: string): Promise<FlagOriginCounts> =>
+      ipcRenderer.invoke(IPC.flagsCountOpenByProject, projectId),
+    raise: (input: RaiseFlagInput): Promise<Flag> => ipcRenderer.invoke(IPC.flagsRaise, input),
+    resolve: (id: string, resolutionNote?: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.flagsResolve, id, resolutionNote)
   }
 }
 

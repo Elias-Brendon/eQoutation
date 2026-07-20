@@ -10,6 +10,7 @@ import { useUiStore } from '@renderer/state/useUiStore'
 import { useProjects } from '@renderer/state/queries/useProjects'
 import { useDeleteSld, useSlds, useUploadSld } from '@renderer/state/queries/useSlds'
 import { useQuotationsByProject } from '@renderer/state/queries/useQuotation'
+import { useOpenFlagCountsByProject } from '@renderer/state/queries/useFlags'
 import type { Sld } from '@shared/types/entities'
 
 function App(): React.JSX.Element {
@@ -28,6 +29,7 @@ function App(): React.JSX.Element {
   const { data: projects = [] } = useProjects()
   const { data: slds = [] } = useSlds(selectedProjectId)
   const { data: quotations = [] } = useQuotationsByProject(selectedProjectId)
+  const { data: flagCounts } = useOpenFlagCountsByProject(selectedProjectId)
   const uploadSld = useUploadSld()
   const deleteSld = useDeleteSld()
 
@@ -51,8 +53,9 @@ function App(): React.JSX.Element {
   const sldsById = useMemo(() => new Map(slds.map((sld) => [sld.id, sld])), [slds])
   const selectedSld = selectedSldId ? (sldsById.get(selectedSldId) ?? null) : null
 
-  const aiFlagCount = 0
-  const manualFlagCount = 0
+  const matcherFlagCount = flagCounts?.matcher ?? 0
+  const aiFlagCount = flagCounts?.ai ?? 0
+  const manualFlagCount = flagCounts?.human ?? 0
 
   const handleSelectSld = (sldId: string): void => {
     selectSld(sldId, null)
@@ -71,6 +74,7 @@ function App(): React.JSX.Element {
     <div className="flex h-screen flex-col bg-bg text-text-primary">
       <TopBar
         project={selectedProject}
+        matcherFlagCount={matcherFlagCount}
         aiFlagCount={aiFlagCount}
         manualFlagCount={manualFlagCount}
         extractionProgress={extractionProgress}
@@ -87,14 +91,7 @@ function App(): React.JSX.Element {
           onDeleteSld={handleDeleteSld}
           addDisabled={!selectedProject}
         />
-        <CenterPanel
-          sld={selectedSld}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onApprove={() => console.log('Approve — wired in Stage 8')}
-          onReject={() => console.log('Reject — wired in Stage 8')}
-          onComment={() => console.log('Add comment — wired in Stage 8')}
-        />
+        <CenterPanel sld={selectedSld} activeTab={activeTab} onTabChange={setActiveTab} />
         <QuotationListColumn
           quotations={quotations}
           sldsById={sldsById}

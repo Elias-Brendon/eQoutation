@@ -17,5 +17,13 @@ export const IPC = {
   quotationsGenerate: 'quotations:generate',
   quotationsGetBySld: 'quotations:getBySld',
   quotationsListByProject: 'quotations:listByProject',
-  quotationsExport: 'quotations:export'
+  quotationsExport: 'quotations:export',
+  quotationsApprove: 'quotations:approve',
+  quotationsReject: 'quotations:reject',
+  quotationsAddComment: 'quotations:addComment',
+  quotationsListComments: 'quotations:listComments',
+  flagsListByQuotation: 'flags:listByQuotation',
+  flagsCountOpenByProject: 'flags:countOpenByProject',
+  flagsRaise: 'flags:raise',
+  flagsResolve: 'flags:resolve'
 } as const

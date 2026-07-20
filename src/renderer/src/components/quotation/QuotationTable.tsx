@@ -1,8 +1,10 @@
-import { Loader2, Sparkles } from 'lucide-react'
+import { useMemo } from 'react'
+import { Flag as FlagIcon, Loader2, Sparkles } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
 import { useGenerateQuotation, useQuotation } from '@renderer/state/queries/useQuotation'
+import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 
 interface QuotationTableProps {
   sldId: string
@@ -11,6 +13,17 @@ interface QuotationTableProps {
 export function QuotationTable({ sldId }: QuotationTableProps): React.JSX.Element {
   const { data: quotation, isLoading } = useQuotation(sldId)
   const generate = useGenerateQuotation()
+  const { data: flags = [] } = useFlagsByQuotation(quotation?.id ?? null)
+
+  const openFlagCountByLine = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const flag of flags) {
+      if (flag.status === 'open' && flag.quotationLineId) {
+        map.set(flag.quotationLineId, (map.get(flag.quotationLineId) ?? 0) + 1)
+      }
+    }
+    return map
+  }, [flags])
 
   const lines = quotation?.lines ?? []
   const matchedCount = lines.filter((l) => l.matchStatus === 'matched').length
@@ -106,6 +119,12 @@ export function QuotationTable({ sldId }: QuotationTableProps): React.JSX.Elemen
                     {line.description}
                     {line.matchStatus === 'unknown' && (
                       <span className="ml-2 text-xs text-danger">unmatched</span>
+                    )}
+                    {(openFlagCountByLine.get(line.id) ?? 0) > 0 && (
+                      <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-warning">
+                        <FlagIcon className="h-3 w-3" />
+                        {openFlagCountByLine.get(line.id)}
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-text-secondary">{line.maker}</td>

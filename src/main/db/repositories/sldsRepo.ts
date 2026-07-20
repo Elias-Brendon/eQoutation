@@ -73,6 +73,12 @@ export function insertSld(input: InsertSldInput): Sld {
   return toSld(row)
 }
 
+export function updateSldStatus(id: string, status: Sld['status']): void {
+  getDb()
+    .prepare('UPDATE slds SET status = ?, updated_at = ? WHERE id = ?')
+    .run(status, new Date().toISOString(), id)
+}
+
 export function softDeleteSld(id: string): void {
   getDb()
     .prepare('UPDATE slds SET deleted_at = ?, updated_at = ? WHERE id = ?')

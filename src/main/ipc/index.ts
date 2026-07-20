@@ -4,6 +4,7 @@ import { registerAnnotationsIpc } from './annotations.ipc'
 import { registerCatalogIpc } from './catalog.ipc'
 import { registerAiIpc } from './ai.ipc'
 import { registerQuotationsIpc } from './quotations.ipc'
+import { registerFlagsIpc } from './flags.ipc'
 
 export function registerAllIpc(): void {
   registerProjectsIpc()
@@ -12,4 +13,5 @@ export function registerAllIpc(): void {
   registerCatalogIpc()
   registerAiIpc()
   registerQuotationsIpc()
+  registerFlagsIpc()
 }

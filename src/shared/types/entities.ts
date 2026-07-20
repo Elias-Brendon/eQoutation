@@ -1,7 +1,8 @@
 export type SldStatus = 'done' | 'in_progress' | 'rejected'
 export type QuotationStatus = 'generating' | 'pending_review' | 'approved' | 'rejected'
-export type FlagOrigin = 'ai' | 'human'
+export type FlagOrigin = 'matcher' | 'ai' | 'human'
 export type FlagStatus = 'open' | 'resolved'
+export type FlagSeverity = 'info' | 'warning'
 export type CenterTab = 'pdf' | 'quotation'
 
 export interface Project {
@@ -70,9 +71,33 @@ export interface Quotation {
 
 export interface Flag {
   id: string
+  quotationId: string
+  quotationLineId: string | null
   origin: FlagOrigin
-  description: string
+  severity: FlagSeverity
+  message: string
+  pageNumber: number | null
   status: FlagStatus
+  resolutionNote: string | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export interface RaiseFlagInput {
+  quotationId: string
+  quotationLineId?: string | null
+  severity?: FlagSeverity
+  message: string
+  pageNumber?: number | null
+}
+
+export type FlagOriginCounts = Record<FlagOrigin, number>
+
+export interface QuotationComment {
+  id: string
+  quotationId: string
+  body: string
+  createdAt: string
 }
 
 export type AnnotationShapeType = 'freehand' | 'pin'

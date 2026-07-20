@@ -1,4 +1,4 @@
-import type { QuotationStatus, SldStatus } from '@shared/types/entities'
+import type { FlagOrigin, FlagSeverity, QuotationStatus, SldStatus } from '@shared/types/entities'
 
 export const sldStatusMeta: Record<
   SldStatus,
@@ -17,4 +17,21 @@ export const quotationStatusMeta: Record<
   pending_review: { label: 'Pending review', tone: 'warning' },
   approved: { label: 'Approved', tone: 'success' },
   rejected: { label: 'Rejected', tone: 'danger' }
+}
+
+export const flagOriginMeta: Record<
+  FlagOrigin,
+  { label: string; tone: 'success' | 'warning' | 'danger' | 'info' }
+> = {
+  matcher: { label: 'Matcher', tone: 'warning' },
+  ai: { label: 'AI', tone: 'danger' },
+  human: { label: 'Human', tone: 'warning' }
+}
+
+export const flagSeverityMeta: Record<
+  FlagSeverity,
+  { label: string; tone: 'success' | 'warning' | 'danger' | 'info' }
+> = {
+  info: { label: 'Info', tone: 'info' },
+  warning: { label: 'Warning', tone: 'warning' }
 }
