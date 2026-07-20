@@ -29,6 +29,12 @@ export function listProjects(): Project[] {
   return rows.map(toProject)
 }
 
+export function getProjectById(id: string): Project | null {
+  const row = getDb().prepare('SELECT * FROM projects WHERE id = ?').get(id) as
+    ProjectRow | undefined
+  return row ? toProject(row) : null
+}
+
 export function createProject(input: CreateProjectInput): Project {
   const now = new Date().toISOString()
   const row: ProjectRow = {

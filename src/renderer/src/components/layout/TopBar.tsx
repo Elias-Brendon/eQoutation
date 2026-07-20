@@ -1,24 +1,32 @@
-import { Flag, Plus, Upload } from 'lucide-react'
+import { Database, Flag, Plus, Upload } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Logo } from '@renderer/components/animation/Logo'
 import { Button } from '@renderer/components/common/Button'
-import type { Project } from '@shared/types/entities'
+import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
 
 interface TopBarProps {
   project: Project | null
   aiFlagCount: number
   manualFlagCount: number
+  extractionProgress: ExtractionProgressEvent | null
   onUploadClick: () => void
   onNewProject: () => void
+  onOpenCatalog: () => void
 }
 
 export function TopBar({
   project,
   aiFlagCount,
   manualFlagCount,
+  extractionProgress,
   onUploadClick,
-  onNewProject
+  onNewProject,
+  onOpenCatalog
 }: TopBarProps): React.JSX.Element {
+  const progressPct = extractionProgress?.pct ?? project?.aiProgressPct ?? 0
+  const progressLabel = extractionProgress
+    ? `${extractionProgress.stage.toUpperCase()}`
+    : 'AI GENERATION'
   return (
     <header className="flex h-16 shrink-0 items-center gap-6 border-b border-border bg-surface px-5">
       <Logo />
@@ -38,17 +46,17 @@ export function TopBar({
         {project && (
           <>
             <span className="shrink-0 font-mono text-[11px] tracking-wider text-text-muted">
-              AI GENERATION
+              {progressLabel}
             </span>
             <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-raised">
               <motion.div
                 className="h-full rounded-full bg-accent"
                 initial={{ width: 0 }}
-                animate={{ width: `${project.aiProgressPct}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
+                animate={{ width: `${progressPct}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
               />
             </div>
-            <span className="shrink-0 font-mono text-xs text-accent">{project.aiProgressPct}%</span>
+            <span className="shrink-0 font-mono text-xs text-accent">{progressPct}%</span>
           </>
         )}
       </div>
@@ -63,6 +71,11 @@ export function TopBar({
           {manualFlagCount} Manual
         </span>
       </div>
+
+      <Button variant="outline" size="md" onClick={onOpenCatalog} title="Browse catalog">
+        <Database className="h-4 w-4" />
+        Catalog
+      </Button>
 
       <Button variant="outline" size="md" onClick={onNewProject}>
         <Plus className="h-4 w-4" />

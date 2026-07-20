@@ -21,6 +21,7 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.1",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@tailwindcss/vite": "^4.3.3",
@@ -28,6 +29,8 @@
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",
     "pdfjs-dist": "^4.10.38",

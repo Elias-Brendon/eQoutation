@@ -1,15 +1,23 @@
 import { type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card } from '@renderer/components/common/Card'
+import { cn } from '@renderer/lib/cn'
 
 interface ModalProps {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
+  className?: string
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps): React.JSX.Element | null {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  className
+}: ModalProps): React.JSX.Element | null {
   return (
     <AnimatePresence>
       {open && (
@@ -27,7 +35,7 @@ export function Modal({ open, onClose, title, children }: ModalProps): React.JSX
             transition={{ duration: 0.15 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Card className="w-96 p-5">
+            <Card className={cn('w-96 p-5', className)}>
               <h2 className="mb-4 text-sm font-semibold text-text-primary">{title}</h2>
               {children}
             </Card>

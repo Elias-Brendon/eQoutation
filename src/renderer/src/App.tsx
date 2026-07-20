@@ -5,9 +5,11 @@ import { CenterPanel } from '@renderer/components/layout/CenterPanel'
 import { QuotationListColumn } from '@renderer/components/layout/QuotationListColumn'
 import { CreateProjectDialog } from '@renderer/components/layout/CreateProjectDialog'
 import { AddSldDialog } from '@renderer/components/layout/AddSldDialog'
+import { CatalogModal } from '@renderer/components/catalog/CatalogModal'
 import { useUiStore } from '@renderer/state/useUiStore'
 import { useProjects } from '@renderer/state/queries/useProjects'
 import { useDeleteSld, useSlds, useUploadSld } from '@renderer/state/queries/useSlds'
+import { useQuotationsByProject } from '@renderer/state/queries/useQuotation'
 import type { Sld } from '@shared/types/entities'
 
 function App(): React.JSX.Element {
@@ -18,17 +20,25 @@ function App(): React.JSX.Element {
     activeTab,
     selectProject,
     selectSld,
+    selectQuotation,
     clearSld,
     setActiveTab
   } = useUiStore()
 
   const { data: projects = [] } = useProjects()
   const { data: slds = [] } = useSlds(selectedProjectId)
+  const { data: quotations = [] } = useQuotationsByProject(selectedProjectId)
   const uploadSld = useUploadSld()
   const deleteSld = useDeleteSld()
 
+  const setExtractionProgress = useUiStore((s) => s.setExtractionProgress)
+  const extractionProgress = useUiStore((s) => s.extractionProgress)
+
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [addSldOpen, setAddSldOpen] = useState(false)
+  const [catalogOpen, setCatalogOpen] = useState(false)
+
+  useEffect(() => window.api.ai.onProgress(setExtractionProgress), [setExtractionProgress])
 
   // Auto-select the most recently created project once the list loads.
   useEffect(() => {
@@ -41,8 +51,6 @@ function App(): React.JSX.Element {
   const sldsById = useMemo(() => new Map(slds.map((sld) => [sld.id, sld])), [slds])
   const selectedSld = selectedSldId ? (sldsById.get(selectedSldId) ?? null) : null
 
-  // Quotations aren't generated until Stage 6/7 — real empty state for now.
-  const quotations: never[] = []
   const aiFlagCount = 0
   const manualFlagCount = 0
 
@@ -65,8 +73,10 @@ function App(): React.JSX.Element {
         project={selectedProject}
         aiFlagCount={aiFlagCount}
         manualFlagCount={manualFlagCount}
+        extractionProgress={extractionProgress}
         onUploadClick={() => selectedProject && uploadSld.mutate({ projectId: selectedProject.id })}
         onNewProject={() => setCreateProjectOpen(true)}
+        onOpenCatalog={() => setCatalogOpen(true)}
       />
       <div className="flex flex-1 overflow-hidden">
         <SldListColumn
@@ -79,19 +89,20 @@ function App(): React.JSX.Element {
         />
         <CenterPanel
           sld={selectedSld}
-          quotation={null}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onApprove={() => console.log('Approve — wired in Stage 8')}
           onReject={() => console.log('Reject — wired in Stage 8')}
           onComment={() => console.log('Add comment — wired in Stage 8')}
-          onExport={() => console.log('Export quotation — wired in Stage 11')}
         />
         <QuotationListColumn
           quotations={quotations}
           sldsById={sldsById}
           selectedQuotationId={selectedQuotationId}
-          onSelect={() => {}}
+          onSelect={(quotationId) => {
+            const quotation = quotations.find((q) => q.id === quotationId)
+            if (quotation) selectQuotation(quotationId, quotation.sldId)
+          }}
         />
       </div>
 
@@ -110,6 +121,7 @@ function App(): React.JSX.Element {
           onClose={() => setAddSldOpen(false)}
         />
       )}
+      <CatalogModal open={catalogOpen} onClose={() => setCatalogOpen(false)} />
     </div>
   )
 }

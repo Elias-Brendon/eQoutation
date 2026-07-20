@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react'
 import { MessageCircle } from 'lucide-react'
 import type { Annotation, AnnotationPoint } from '@shared/types/entities'
 
+const MAX_DEVICE_PIXEL_RATIO = 2
+
 interface AnnotationCanvasProps {
-  width: number
-  height: number
+  cssWidth: number
+  cssHeight: number
   annotations: Annotation[]
   liveStroke: AnnotationPoint[] | null
   liveColor: string
@@ -12,14 +14,17 @@ interface AnnotationCanvasProps {
 }
 
 export function AnnotationCanvas({
-  width,
-  height,
+  cssWidth,
+  cssHeight,
   annotations,
   liveStroke,
   liveColor,
   onPinClick
 }: AnnotationCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
+  const renderWidth = Math.round(cssWidth * dpr)
+  const renderHeight = Math.round(cssHeight * dpr)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -30,7 +35,7 @@ export function AnnotationCanvas({
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.lineWidth = 2.5
+    ctx.lineWidth = 2.5 * dpr
 
     const strokePath = (points: AnnotationPoint[], color: string): void => {
       if (points.length < 2) return
@@ -49,13 +54,22 @@ export function AnnotationCanvas({
       if (annotation.shapeType === 'freehand') strokePath(annotation.points, annotation.color)
     }
     if (liveStroke) strokePath(liveStroke, liveColor)
-  }, [annotations, width, height, liveStroke, liveColor])
+  }, [annotations, renderWidth, renderHeight, liveStroke, liveColor, dpr])
 
   const pins = annotations.filter((a) => a.shapeType === 'pin' && a.points.length > 0)
 
   return (
-    <div className="pointer-events-none absolute left-0 top-0" style={{ width, height }}>
-      <canvas ref={canvasRef} width={width} height={height} className="absolute left-0 top-0" />
+    <div
+      className="pointer-events-none absolute left-0 top-0"
+      style={{ width: cssWidth, height: cssHeight }}
+    >
+      <canvas
+        ref={canvasRef}
+        width={renderWidth}
+        height={renderHeight}
+        style={{ width: cssWidth, height: cssHeight }}
+        className="absolute left-0 top-0"
+      />
       {pins.map((pin) => (
         <button
           key={pin.id}

@@ -7,5 +7,15 @@ export const IPC = {
   sldsReadFile: 'slds:readFile',
   annotationsListBySldAndPage: 'annotations:listBySldAndPage',
   annotationsCreate: 'annotations:create',
-  annotationsDelete: 'annotations:delete'
+  annotationsDelete: 'annotations:delete',
+  catalogGetStatus: 'catalog:getStatus',
+  catalogReload: 'catalog:reload',
+  catalogSearch: 'catalog:search',
+  aiExtractSld: 'ai:extractSld',
+  aiGetExtraction: 'ai:getExtraction',
+  aiExtractionProgress: 'ai:extractionProgress',
+  quotationsGenerate: 'quotations:generate',
+  quotationsGetBySld: 'quotations:getBySld',
+  quotationsListByProject: 'quotations:listByProject',
+  quotationsExport: 'quotations:export'
 } as const

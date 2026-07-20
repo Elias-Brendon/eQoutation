@@ -37,7 +37,8 @@ export function listSldsByProject(projectId: string): Sld[] {
 }
 
 export function getSldById(id: string): Sld | null {
-  const row = getDb().prepare('SELECT * FROM slds WHERE id = ?').get(id) as SldRow | undefined
+  const row = getDb().prepare('SELECT * FROM slds WHERE id = ? AND deleted_at IS NULL').get(id) as
+    SldRow | undefined
   return row ? toSld(row) : null
 }
 

@@ -1,31 +1,32 @@
-import { Check, Download, MessageSquare, X } from 'lucide-react'
+import { Check, Download, Loader2, MessageSquare, X } from 'lucide-react'
 import { Tabs } from '@renderer/components/common/Tabs'
 import { Button } from '@renderer/components/common/Button'
 import { PdfViewer } from '@renderer/components/pdf/PdfViewer'
+import { ExtractionPanel } from '@renderer/components/pdf/ExtractionPanel'
 import { QuotationTable } from '@renderer/components/quotation/QuotationTable'
-import type { CenterTab, Quotation, Sld } from '@shared/types/entities'
+import { useExportQuotation, useQuotation } from '@renderer/state/queries/useQuotation'
+import type { CenterTab, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
   sld: Sld | null
-  quotation: Quotation | null
   activeTab: CenterTab
   onTabChange: (tab: CenterTab) => void
   onApprove: () => void
   onReject: () => void
   onComment: () => void
-  onExport: () => void
 }
 
 export function CenterPanel({
   sld,
-  quotation,
   activeTab,
   onTabChange,
   onApprove,
   onReject,
-  onComment,
-  onExport
+  onComment
 }: CenterPanelProps): React.JSX.Element {
+  const { data: quotation } = useQuotation(sld?.id ?? null)
+  const exportQuotation = useExportQuotation()
+
   if (!sld) {
     return (
       <section className="flex flex-1 flex-col items-center justify-center bg-bg text-sm text-text-muted">
@@ -50,9 +51,12 @@ export function CenterPanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
         {activeTab === 'pdf' ? (
-          <PdfViewer key={sld.id} sldId={sld.id} filename={sld.filename} />
+          <>
+            <PdfViewer key={sld.id} sldId={sld.id} filename={sld.filename} />
+            <ExtractionPanel key={sld.id} sldId={sld.id} />
+          </>
         ) : (
-          <QuotationTable lines={quotation?.lines ?? []} />
+          <QuotationTable sldId={sld.id} />
         )}
       </div>
 
@@ -71,8 +75,20 @@ export function CenterPanel({
             Add comment
           </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={onExport}>
-          <Download className="h-3.5 w-3.5" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            quotation && exportQuotation.mutate({ quotationId: quotation.id, sldId: sld.id })
+          }
+          disabled={!quotation || exportQuotation.isPending}
+          title={quotation ? undefined : 'Generate a quotation first'}
+        >
+          {exportQuotation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
           Export quotation
         </Button>
       </div>

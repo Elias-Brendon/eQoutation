@@ -1,8 +1,12 @@
+import { config as loadEnv } from 'dotenv'
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllIpc } from './ipc'
+
+// Dev-only key loading; production should use the OS keychain instead (see plan risk #5).
+loadEnv()
 
 function createWindow(): void {
   // Create the browser window.

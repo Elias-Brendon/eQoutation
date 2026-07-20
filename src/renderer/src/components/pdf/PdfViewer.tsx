@@ -31,6 +31,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 6
 const ZOOM_STEP = 1.2
+// Beyond this, further zoom is a pure CSS scale-up of the same bitmap (some
+// softening is an acceptable tradeoff against unbounded canvas memory use).
+const MAX_RENDER_QUALITY_ZOOM = 4
+const MAX_DEVICE_PIXEL_RATIO = 2
+const RENDER_DEBOUNCE_MS = 200
 
 const ANNOTATION_COLORS = ['#ef4444', '#f2652c', '#eab308', '#6b8ee8']
 
@@ -46,18 +51,34 @@ interface Point {
   y: number
 }
 
+function devicePixelRatioCapped(): number {
+  return Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
+}
+
 export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError } = useSldFile(sldId)
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragRef = useRef<{ start: Point; pan: Point } | null>(null)
   const strokeRef = useRef<AnnotationPoint[]>([])
+  // Only one pdf.js render may target a canvas at a time — every render
+  // path funnels through renderPageAtScale, which cancels this first.
+  const renderTaskRef = useRef<RenderTask | null>(null)
+  // Overlapping calls to renderPageAtScale/fitAndRender can resolve their
+  // awaits out of order (e.g. rapid zoom clicks). Each call captures the
+  // generation at start and bails after any await if a newer call has since
+  // started, so a stale call can never clobber a newer one's result.
+  const renderGenerationRef = useRef(0)
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  // CSS-pixel size of the page at zoom=1 ("fit"). Stays fixed across zoom —
+  // the wrapping layer's transform handles the visual scale. Only the
+  // canvas's internal bitmap resolution changes with zoom, for sharpness.
+  const [baseSize, setBaseSize] = useState({ width: 0, height: 0 })
+  const [fitScale, setFitScale] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [renderError, setRenderError] = useState<string | null>(null)
 
@@ -92,52 +113,84 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     }
   }, [fileBytes])
 
-  // Render the current page sized to fit the container, and re-center the view.
-  const renderPage = useCallback((): (() => void) => {
-    if (!pdfDoc || !containerRef.current || !canvasRef.current) return () => {}
-    let cancelled = false
-    let renderTask: RenderTask | null = null
+  // Single funnel for actually drawing into the canvas. Cancels whatever
+  // render was previously in flight so two calls can never race on the
+  // same canvas (pdf.js throws if they do).
+  const renderPageAtScale = useCallback(
+    async (scale: number): Promise<void> => {
+      if (!pdfDoc || !canvasRef.current) return
+      const generation = ++renderGenerationRef.current
+      const page = await pdfDoc.getPage(pageNumber)
+      if (generation !== renderGenerationRef.current || !canvasRef.current) return
 
-    pdfDoc
-      .getPage(pageNumber)
-      .then((page) => {
-        if (cancelled || !containerRef.current || !canvasRef.current) return
-        const unscaled = page.getViewport({ scale: 1 })
-        const availableWidth = containerRef.current.clientWidth - 32
-        const availableHeight = containerRef.current.clientHeight - 32
-        const fitScale = Math.min(
-          availableWidth / unscaled.width,
-          availableHeight / unscaled.height
-        )
-        const viewport = page.getViewport({ scale: Math.max(fitScale, 0.1) })
+      // pdf.js releases a cancelled render's hold on the canvas asynchronously,
+      // not the instant cancel() is called. Starting a new render before that
+      // settles throws "Cannot use the same canvas during multiple render()
+      // operations" — so wait for the cancellation to actually finish first.
+      const previous = renderTaskRef.current
+      if (previous) {
+        previous.cancel()
+        await previous.promise.catch(() => {})
+      }
+      if (generation !== renderGenerationRef.current || !canvasRef.current) return
 
-        const canvas = canvasRef.current
-        const context = canvas.getContext('2d')
-        if (!context) return
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        setViewportSize({ width: viewport.width, height: viewport.height })
+      const viewport = page.getViewport({ scale })
+      const canvas = canvasRef.current
+      const context = canvas.getContext('2d')
+      if (!context) return
+      canvas.width = viewport.width
+      canvas.height = viewport.height
 
-        setZoom(1)
-        setPan({
-          x: (containerRef.current.clientWidth - viewport.width) / 2,
-          y: (containerRef.current.clientHeight - viewport.height) / 2
-        })
+      try {
+        const task = page.render({ canvasContext: context, viewport })
+        renderTaskRef.current = task
+        await task.promise
+        if (renderTaskRef.current === task) renderTaskRef.current = null
+      } catch (err) {
+        const error = err as Error
+        if (error.name !== 'RenderingCancelledException') setRenderError(error.message)
+      }
+    },
+    [pdfDoc, pageNumber]
+  )
 
-        renderTask = page.render({ canvasContext: context, viewport })
-        return renderTask.promise
-      })
-      .catch((err: Error) => {
-        if (!cancelled && err.name !== 'RenderingCancelledException') setRenderError(err.message)
-      })
+  // Fit the page to the container: sets the CSS display size and does an
+  // initial high-DPI render. Resets zoom/pan. Used on page/document change
+  // and on container resize (and via the explicit "fit to view" action).
+  const fitAndRender = useCallback(async (): Promise<void> => {
+    if (!pdfDoc || !containerRef.current || !canvasRef.current) return
+    const generation = ++renderGenerationRef.current
+    const page = await pdfDoc.getPage(pageNumber)
+    if (generation !== renderGenerationRef.current || !containerRef.current || !canvasRef.current)
+      return
 
-    return () => {
-      cancelled = true
-      renderTask?.cancel()
-    }
-  }, [pdfDoc, pageNumber])
+    const unscaled = page.getViewport({ scale: 1 })
+    const availableWidth = containerRef.current.clientWidth - 32
+    const availableHeight = containerRef.current.clientHeight - 32
+    const newFitScale = Math.max(
+      Math.min(availableWidth / unscaled.width, availableHeight / unscaled.height),
+      0.1
+    )
+    const cssViewport = page.getViewport({ scale: newFitScale })
 
-  useEffect(() => renderPage(), [renderPage])
+    const canvas = canvasRef.current
+    canvas.style.width = `${cssViewport.width}px`
+    canvas.style.height = `${cssViewport.height}px`
+
+    setFitScale(newFitScale)
+    setBaseSize({ width: cssViewport.width, height: cssViewport.height })
+    setZoom(1)
+    setPan({
+      x: (containerRef.current.clientWidth - cssViewport.width) / 2,
+      y: (containerRef.current.clientHeight - cssViewport.height) / 2
+    })
+
+    await renderPageAtScale(newFitScale * devicePixelRatioCapped())
+  }, [pdfDoc, pageNumber, renderPageAtScale])
+
+  useEffect(() => {
+    fitAndRender()
+  }, [fitAndRender])
 
   // Keep the fit sized to the panel as the app window / layout changes size.
   useEffect(() => {
@@ -145,22 +198,36 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     let timeout: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
       clearTimeout(timeout)
-      timeout = setTimeout(renderPage, 150)
+      timeout = setTimeout(() => {
+        fitAndRender()
+      }, 150)
     })
     observer.observe(containerRef.current)
     return () => {
       clearTimeout(timeout)
       observer.disconnect()
     }
-  }, [renderPage])
+  }, [fitAndRender])
+
+  // Re-render the page bitmap at a resolution matching the current zoom, so
+  // the content stays sharp instead of the browser stretching a low-res
+  // bitmap. Debounced so rapid wheel/drag zooming doesn't thrash pdf.js.
+  useEffect(() => {
+    if (!pdfDoc || !fitScale) return
+    const timeout = setTimeout(() => {
+      const qualityZoom = Math.min(Math.max(zoom, 1), MAX_RENDER_QUALITY_ZOOM)
+      renderPageAtScale(fitScale * qualityZoom * devicePixelRatioCapped())
+    }, RENDER_DEBOUNCE_MS)
+    return () => clearTimeout(timeout)
+  }, [pdfDoc, fitScale, zoom, renderPageAtScale])
 
   const screenToNormalized = (clientX: number, clientY: number): AnnotationPoint | null => {
     const container = containerRef.current
-    if (!container || viewportSize.width === 0 || viewportSize.height === 0) return null
+    if (!container || baseSize.width === 0 || baseSize.height === 0) return null
     const rect = container.getBoundingClientRect()
     const localX = (clientX - rect.left - pan.x) / zoom
     const localY = (clientY - rect.top - pan.y) / zoom
-    return { x: localX / viewportSize.width, y: localY / viewportSize.height }
+    return { x: localX / baseSize.width, y: localY / baseSize.height }
   }
 
   const handleWheel = (e: React.WheelEvent): void => {
@@ -410,7 +477,7 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
           <button
-            onClick={renderPage}
+            onClick={() => fitAndRender()}
             className="w-12 text-center font-mono text-xs text-text-secondary hover:text-text-primary"
             title="Fit to view"
           >
@@ -419,7 +486,7 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
           <Button variant="ghost" size="sm" onClick={() => zoomBy(ZOOM_STEP)} title="Zoom in">
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={renderPage} title="Fit to view">
+          <Button variant="ghost" size="sm" onClick={() => fitAndRender()} title="Fit to view">
             <Maximize2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -443,8 +510,8 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
         >
           <canvas ref={canvasRef} draggable={false} className="absolute left-0 top-0 shadow-lg" />
           <AnnotationCanvas
-            width={viewportSize.width}
-            height={viewportSize.height}
+            cssWidth={baseSize.width}
+            cssHeight={baseSize.height}
             annotations={annotations}
             liveStroke={liveStroke}
             liveColor={color}
