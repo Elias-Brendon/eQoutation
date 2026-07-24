@@ -87,6 +87,41 @@ export function getAllCatalogItems(): CatalogItem[] {
   return rows.map(toCatalogItem)
 }
 
+export function getCatalogItemById(id: string): CatalogItem | null {
+  const row = getDb().prepare('SELECT * FROM catalog_items WHERE id = ?').get(id) as
+    CatalogItemRow | undefined
+  return row ? toCatalogItem(row) : null
+}
+
+export function insertCatalogItem(input: CatalogItemInput): CatalogItem {
+  const id = randomUUID()
+  const now = new Date().toISOString()
+
+  getDb()
+    .prepare(
+      `INSERT INTO catalog_items
+         (id, sku, description, maker, family, series, list_price, discount_factor, unit_price, uom, source_row, updated_at)
+       VALUES
+         (@id, @sku, @description, @maker, @family, @series, @list_price, @discount_factor, @unit_price, @uom, @source_row, @updated_at)`
+    )
+    .run({
+      id,
+      sku: input.sku,
+      description: input.description,
+      maker: input.maker ?? '',
+      family: input.family ?? '',
+      series: input.series ?? '',
+      list_price: input.listPrice ?? 0,
+      discount_factor: input.discountFactor ?? 1,
+      unit_price: input.unitPrice ?? 0,
+      uom: input.uom ?? '',
+      source_row: input.sourceRow ?? null,
+      updated_at: now
+    })
+
+  return getCatalogItemById(id) as CatalogItem
+}
+
 export function countCatalogItems(): number {
   const row = getDb().prepare('SELECT COUNT(*) as count FROM catalog_items').get() as {
     count: number
@@ -115,6 +150,26 @@ export function searchCatalogItems(query: string, limit = 100): CatalogItem[] {
     )
     .all({ like, limit }) as CatalogItemRow[]
   return rows.map(toCatalogItem)
+}
+
+export function listDistinctMakers(): string[] {
+  const rows = getDb()
+    .prepare("SELECT DISTINCT maker FROM catalog_items WHERE maker != '' ORDER BY maker")
+    .all() as { maker: string }[]
+  return rows.map((row) => row.maker)
+}
+
+// Reference glossary for the AI extraction prompt (Stage: preferred-brand +
+// component-identifier accuracy) — every distinct catalog description, so
+// the model can phrase extractions toward wording the catalog matcher
+// already knows.
+export function listDistinctDescriptions(): string[] {
+  const rows = getDb()
+    .prepare(
+      "SELECT DISTINCT description FROM catalog_items WHERE description != '' ORDER BY description"
+    )
+    .all() as { description: string }[]
+  return rows.map((row) => row.description)
 }
 
 export function recordCatalogSync(sourcePath: string, itemCount: number): void {

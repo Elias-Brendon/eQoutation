@@ -3,28 +3,74 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../shared/types/ipc-contract'
 import type {
   Annotation,
+  AppSettings,
+  AuthStatus,
+  AuthUser,
   CatalogItem,
   CatalogReloadResult,
   CatalogStatus,
+  ChangePasswordInput,
   CreateAnnotationInput,
   CreateProjectInput,
   Extraction,
   ExtractionProgressEvent,
+  FeedbackLogEntry,
+  FeedbackResolveLineInput,
   Flag,
   FlagOriginCounts,
+  LoginInput,
+  NewCatalogItemInput,
+  PickCatalogDirResult,
   Project,
   Quotation,
   QuotationComment,
+  QuotationLine,
   RaiseFlagInput,
+  RecoveryQuestionResult,
+  ResetPasswordInput,
+  ResolveUnmatchedLineResult,
+  SetSecurityQuestionInput,
+  SetupInput,
   Sld,
+  TestApiKeyResult,
   UploadSldInput
 } from '../shared/types/entities'
 
 const api = {
+  auth: {
+    getStatus: (): Promise<AuthStatus> => ipcRenderer.invoke(IPC.authGetStatus),
+    setup: (input: SetupInput): Promise<AuthUser> => ipcRenderer.invoke(IPC.authSetup, input),
+    login: (input: LoginInput): Promise<AuthUser> => ipcRenderer.invoke(IPC.authLogin, input),
+    logout: (): Promise<void> => ipcRenderer.invoke(IPC.authLogout),
+    getRecoveryQuestion: (username: string): Promise<RecoveryQuestionResult> =>
+      ipcRenderer.invoke(IPC.authGetRecoveryQuestion, username),
+    resetPassword: (input: ResetPasswordInput): Promise<AuthUser> =>
+      ipcRenderer.invoke(IPC.authResetPassword, input),
+    setSecurityQuestion: (input: SetSecurityQuestionInput): Promise<void> =>
+      ipcRenderer.invoke(IPC.authSetSecurityQuestion, input),
+    changePassword: (input: ChangePasswordInput): Promise<void> =>
+      ipcRenderer.invoke(IPC.authChangePassword, input)
+  },
+  settings: {
+    get: (): Promise<AppSettings> => ipcRenderer.invoke(IPC.settingsGet),
+    update: (patch: Partial<AppSettings>): Promise<AppSettings> =>
+      ipcRenderer.invoke(IPC.settingsUpdate, patch),
+    pickCatalogDir: (): Promise<PickCatalogDirResult | null> =>
+      ipcRenderer.invoke(IPC.settingsPickCatalogDir)
+  },
+  secrets: {
+    setApiKey: (key: string): Promise<void> => ipcRenderer.invoke(IPC.secretsSetApiKey, key),
+    getApiKeyMasked: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.secretsGetApiKeyMasked),
+    testApiKey: (key: string): Promise<TestApiKeyResult> =>
+      ipcRenderer.invoke(IPC.secretsTestApiKey, key)
+  },
   projects: {
     list: (): Promise<Project[]> => ipcRenderer.invoke(IPC.projectsList),
     create: (input: CreateProjectInput): Promise<Project> =>
-      ipcRenderer.invoke(IPC.projectsCreate, input)
+      ipcRenderer.invoke(IPC.projectsCreate, input),
+    updateCurrency: (projectId: string, currency: string): Promise<Project> =>
+      ipcRenderer.invoke(IPC.projectsUpdateCurrency, projectId, currency)
   },
   slds: {
     listByProject: (projectId: string): Promise<Sld[]> =>
@@ -45,7 +91,10 @@ const api = {
     getStatus: (): Promise<CatalogStatus> => ipcRenderer.invoke(IPC.catalogGetStatus),
     reload: (): Promise<CatalogReloadResult> => ipcRenderer.invoke(IPC.catalogReload),
     search: (query: string, limit?: number): Promise<CatalogItem[]> =>
-      ipcRenderer.invoke(IPC.catalogSearch, query, limit)
+      ipcRenderer.invoke(IPC.catalogSearch, query, limit),
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IPC.catalogOpenFolder),
+    listDistinctMakers: (): Promise<string[]> =>
+      ipcRenderer.invoke(IPC.catalogListDistinctMakers)
   },
   ai: {
     extractSld: (sldId: string): Promise<Extraction> => ipcRenderer.invoke(IPC.aiExtractSld, sldId),
@@ -74,7 +123,13 @@ const api = {
     addComment: (quotationId: string, body: string): Promise<QuotationComment> =>
       ipcRenderer.invoke(IPC.quotationsAddComment, quotationId, body),
     listComments: (quotationId: string): Promise<QuotationComment[]> =>
-      ipcRenderer.invoke(IPC.quotationsListComments, quotationId)
+      ipcRenderer.invoke(IPC.quotationsListComments, quotationId),
+    delete: (quotationId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.quotationsDelete, quotationId),
+    updateLineMargin: (lineId: string, margin: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.quotationLinesUpdateMargin, lineId, margin),
+    updatePanelMargin: (quotationId: string, panelName: string, margin: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.quotationPanelsUpdateMargin, quotationId, panelName, margin)
   },
   flags: {
     listByQuotation: (quotationId: string): Promise<Flag[]> =>
@@ -83,7 +138,31 @@ const api = {
       ipcRenderer.invoke(IPC.flagsCountOpenByProject, projectId),
     raise: (input: RaiseFlagInput): Promise<Flag> => ipcRenderer.invoke(IPC.flagsRaise, input),
     resolve: (id: string, resolutionNote?: string): Promise<void> =>
-      ipcRenderer.invoke(IPC.flagsResolve, id, resolutionNote)
+      ipcRenderer.invoke(IPC.flagsResolve, id, resolutionNote),
+    resolveUnmatchedLine: (flagId: string): Promise<ResolveUnmatchedLineResult> =>
+      ipcRenderer.invoke(IPC.flagsResolveUnmatchedLine, flagId),
+    linkLineToCatalogItem: (
+      flagId: string | null,
+      lineId: string,
+      catalogItemId: string
+    ): Promise<void> =>
+      ipcRenderer.invoke(IPC.flagsLinkLineToCatalogItem, flagId, lineId, catalogItemId),
+    addCatalogItemAndLink: (
+      flagId: string | null,
+      lineId: string,
+      input: NewCatalogItemInput
+    ): Promise<CatalogItem> =>
+      ipcRenderer.invoke(IPC.flagsAddCatalogItemAndLink, flagId, lineId, input)
+  },
+  feedback: {
+    resolveLine: (input: FeedbackResolveLineInput): Promise<QuotationLine> =>
+      ipcRenderer.invoke(IPC.feedbackResolveLine, input),
+    listByLine: (lineId: string): Promise<FeedbackLogEntry[]> =>
+      ipcRenderer.invoke(IPC.feedbackListByLine, lineId)
+  },
+  export: {
+    project: (projectId: string): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.exportProject, projectId)
   }
 }
 

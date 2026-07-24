@@ -1,6 +1,15 @@
-import { useState } from 'react'
-import { Check, Download, Flag as FlagIcon, Loader2, MessageSquare, X } from 'lucide-react'
-import { Tabs } from '@renderer/components/common/Tabs'
+import { useEffect, useState } from 'react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Flag as FlagIcon,
+  Loader2,
+  Maximize2,
+  MessageSquare,
+  X
+} from 'lucide-react'
 import { Button } from '@renderer/components/common/Button'
 import { PdfViewer } from '@renderer/components/pdf/PdfViewer'
 import { ExtractionPanel } from '@renderer/components/pdf/ExtractionPanel'
@@ -18,15 +27,42 @@ import {
   useRejectQuotation
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
-import type { CenterTab, Sld } from '@shared/types/entities'
+import type { PanelMode, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
   sld: Sld | null
-  activeTab: CenterTab
-  onTabChange: (tab: CenterTab) => void
+  panelMode: PanelMode
+  onPanelModeChange: (mode: PanelMode) => void
 }
 
-export function CenterPanel({ sld, activeTab, onTabChange }: CenterPanelProps): React.JSX.Element {
+interface RailProps {
+  side: 'left' | 'right'
+  label: string
+  onExpand: () => void
+}
+
+// Clicking anywhere on the rail restores split view — no hover preview.
+function Rail({ side, label, onExpand }: RailProps): React.JSX.Element {
+  const Icon = side === 'left' ? ChevronRight : ChevronLeft
+  return (
+    <button
+      onClick={onExpand}
+      title={`Back to split view (${label})`}
+      className="flex w-10 shrink-0 flex-col items-center gap-2 rounded-lg border border-border bg-surface py-3 transition-colors hover:bg-surface-hover"
+    >
+      <Icon className="h-3.5 w-3.5 text-text-secondary" />
+      <span className="mt-1 whitespace-nowrap text-[11px] text-text-muted [writing-mode:vertical-rl]">
+        {label}
+      </span>
+    </button>
+  )
+}
+
+export function CenterPanel({
+  sld,
+  panelMode,
+  onPanelModeChange
+}: CenterPanelProps): React.JSX.Element {
   const { data: quotation } = useQuotation(sld?.id ?? null)
   const exportQuotation = useExportQuotation()
   const approveQuotation = useApproveQuotation()
@@ -36,6 +72,12 @@ export function CenterPanel({ sld, activeTab, onTabChange }: CenterPanelProps): 
 
   const [modalMode, setModalMode] = useState<QuotationActionMode | null>(null)
   const [flagsPanelOpen, setFlagsPanelOpen] = useState(false)
+  const [focusPage, setFocusPage] = useState<number | undefined>(undefined)
+
+  // Cross-reference target is per-SLD, not persisted across selection changes.
+  useEffect(() => {
+    setFocusPage(undefined)
+  }, [sld?.id])
 
   const openFlagCount = flags.filter((f) => f.status === 'open').length
   const isReviewSubmitting =
@@ -65,34 +107,64 @@ export function CenterPanel({ sld, activeTab, onTabChange }: CenterPanelProps): 
 
   if (!sld) {
     return (
-      <section className="flex flex-1 flex-col items-center justify-center bg-bg text-sm text-text-muted">
+      <section className="flex min-w-0 flex-1 flex-col items-center justify-center bg-bg text-sm text-text-muted">
         Select a single line diagram to preview it here.
       </section>
     )
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col bg-bg">
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
-        <Tabs
-          items={[
-            { value: 'pdf', label: 'PDF Diagram' },
-            { value: 'quotation', label: 'Quotation (Excel)' }
-          ]}
-          value={activeTab}
-          onChange={onTabChange}
-        />
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
+      <div className="flex shrink-0 items-center justify-end border-b border-border px-5 py-3">
         <span className="font-mono text-xs text-text-muted">{sld.filename}</span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 p-5">
-        {activeTab === 'pdf' ? (
-          <>
-            <PdfViewer key={sld.id} sldId={sld.id} filename={sld.filename} />
+      <div className="flex min-h-0 flex-1 gap-3 p-5">
+        {panelMode !== 'quotation-full' ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+            <div className="flex shrink-0 items-center justify-between">
+              <span className="text-xs font-medium text-text-secondary">PDF Diagram</span>
+              {panelMode === 'split' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPanelModeChange('pdf-full')}
+                  title="Expand PDF diagram"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            <PdfViewer key={sld.id} sldId={sld.id} filename={sld.filename} focusPage={focusPage} />
             <ExtractionPanel key={sld.id} sldId={sld.id} />
-          </>
+          </div>
         ) : (
-          <QuotationTable sldId={sld.id} />
+          <Rail side="left" label="PDF Diagram" onExpand={() => onPanelModeChange('split')} />
+        )}
+
+        {panelMode !== 'pdf-full' ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+            <div className="flex shrink-0 items-center justify-between">
+              <span className="text-xs font-medium text-text-secondary">Quotation (Excel)</span>
+              {panelMode === 'split' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPanelModeChange('quotation-full')}
+                  title="Expand quotation"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            <QuotationTable sldId={sld.id} projectId={sld.projectId} onFocusLine={setFocusPage} />
+          </div>
+        ) : (
+          <Rail
+            side="right"
+            label="Quotation (Excel)"
+            onExpand={() => onPanelModeChange('split')}
+          />
         )}
       </div>
 
@@ -170,7 +242,9 @@ export function CenterPanel({ sld, activeTab, onTabChange }: CenterPanelProps): 
             open={flagsPanelOpen}
             onClose={() => setFlagsPanelOpen(false)}
             quotationId={quotation.id}
+            sldId={sld.id}
             projectId={sld.projectId}
+            lines={quotation.lines}
           />
         </>
       )}

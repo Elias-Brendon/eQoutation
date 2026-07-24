@@ -1,46 +1,73 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import type { AppSettings } from '@shared/types/entities'
+import { DEFAULT_COMPONENT_TYPES } from '@shared/constants/componentTypes'
+import { DEFAULT_AI_MODEL } from '@shared/constants/aiModels'
 
-interface Settings {
-  catalogDir: string
+// process.cwd() only means "this project's catalog/ folder" while running
+// under electron-vite in dev — in a packaged build it's unpredictable (often
+// the install directory), so that default would silently point nowhere.
+// Packaged builds default to a per-user folder under userData instead.
+function defaultCatalogDir(): string {
+  if (app.isPackaged) {
+    return join(app.getPath('userData'), 'catalog')
+  }
+  return join(process.cwd(), 'catalog')
 }
 
-// Dev-only default: this project's own catalog/ folder. Once a real Settings
-// screen exists (planned — see appDescription), this becomes user-configurable
-// and should no longer assume the app is running from the project directory.
-function defaultCatalogDir(): string {
-  return join(process.cwd(), 'catalog')
+function defaultSettings(): AppSettings {
+  return {
+    catalogDir: defaultCatalogDir(),
+    preferredBrands: [],
+    enabledComponentTypes: DEFAULT_COMPONENT_TYPES,
+    aiModel: DEFAULT_AI_MODEL,
+    confidenceThreshold: 0.7,
+    maxExtractionRetries: 0,
+    defaultMargin: 1.35,
+    fontScale: 'md'
+  }
 }
 
 function settingsFilePath(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
-function readSettings(): Settings {
+export function getSettings(): AppSettings {
   const filePath = settingsFilePath()
-  if (!existsSync(filePath)) {
-    return { catalogDir: defaultCatalogDir() }
-  }
+  const defaults = defaultSettings()
+  if (!existsSync(filePath)) return defaults
+
   try {
     const raw = readFileSync(filePath, 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<Settings>
-    return { catalogDir: parsed.catalogDir ?? defaultCatalogDir() }
+    const parsed = JSON.parse(raw) as Partial<AppSettings>
+    return {
+      catalogDir: parsed.catalogDir ?? defaults.catalogDir,
+      preferredBrands: parsed.preferredBrands ?? defaults.preferredBrands,
+      enabledComponentTypes: parsed.enabledComponentTypes ?? defaults.enabledComponentTypes,
+      aiModel: parsed.aiModel ?? defaults.aiModel,
+      confidenceThreshold: parsed.confidenceThreshold ?? defaults.confidenceThreshold,
+      maxExtractionRetries: parsed.maxExtractionRetries ?? defaults.maxExtractionRetries,
+      defaultMargin: parsed.defaultMargin ?? defaults.defaultMargin,
+      fontScale: parsed.fontScale ?? defaults.fontScale
+    }
   } catch {
-    return { catalogDir: defaultCatalogDir() }
+    return defaults
   }
 }
 
-function writeSettings(settings: Settings): void {
+export function updateSettings(patch: Partial<AppSettings>): AppSettings {
+  const next = { ...getSettings(), ...patch }
   const filePath = settingsFilePath()
   mkdirSync(app.getPath('userData'), { recursive: true })
-  writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8')
+  writeFileSync(filePath, JSON.stringify(next, null, 2), 'utf-8')
+  return next
 }
 
 export function getCatalogDir(): string {
-  return readSettings().catalogDir
+  return getSettings().catalogDir
 }
 
 export function setCatalogDir(catalogDir: string): void {
-  writeSettings({ ...readSettings(), catalogDir })
+  updateSettings({ catalogDir })
 }

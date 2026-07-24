@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../index'
 import type {
+  CatalogItem,
   Quotation,
   QuotationLine,
   QuotationStatus,
@@ -23,6 +24,7 @@ interface QuotationLineRow {
   quotation_id: string
   catalog_item_id: string | null
   page_number: number
+  panel_name: string
   tag: string
   description: string
   maker: string
@@ -36,6 +38,7 @@ interface QuotationLineRow {
   quote_price: number
   match_status: QuotationLineMatchStatus
   match_confidence: number
+  ai_confidence: number
   created_at: string
 }
 
@@ -45,6 +48,7 @@ function toLine(row: QuotationLineRow): QuotationLine {
     quotationId: row.quotation_id,
     catalogItemId: row.catalog_item_id,
     pageNumber: row.page_number,
+    panelName: row.panel_name,
     tag: row.tag,
     description: row.description,
     maker: row.maker,
@@ -57,7 +61,8 @@ function toLine(row: QuotationLineRow): QuotationLine {
     margin: row.margin,
     quotePrice: row.quote_price,
     matchStatus: row.match_status,
-    matchConfidence: row.match_confidence
+    matchConfidence: row.match_confidence,
+    aiConfidence: row.ai_confidence
   }
 }
 
@@ -78,6 +83,7 @@ function toQuotation(row: QuotationRow, lines: QuotationLine[]): Quotation {
 export interface QuotationLineInput {
   catalogItemId: string | null
   pageNumber: number
+  panelName: string
   tag: string
   description: string
   maker: string
@@ -91,6 +97,7 @@ export interface QuotationLineInput {
   quotePrice: number
   matchStatus: QuotationLineMatchStatus
   matchConfidence: number
+  aiConfidence: number
 }
 
 export function createQuotationWithLines(
@@ -116,13 +123,13 @@ export function createQuotationWithLines(
 
   const insertLine = db.prepare(
     `INSERT INTO quotation_lines
-       (id, quotation_id, catalog_item_id, page_number, tag, description, maker, qty, uom,
+       (id, quotation_id, catalog_item_id, page_number, panel_name, tag, description, maker, qty, uom,
         list_price, discount_factor, unit_cost, total_cost, margin, quote_price,
-        match_status, match_confidence, created_at)
+        match_status, match_confidence, ai_confidence, created_at)
      VALUES
-       (@id, @quotation_id, @catalog_item_id, @page_number, @tag, @description, @maker, @qty, @uom,
+       (@id, @quotation_id, @catalog_item_id, @page_number, @panel_name, @tag, @description, @maker, @qty, @uom,
         @list_price, @discount_factor, @unit_cost, @total_cost, @margin, @quote_price,
-        @match_status, @match_confidence, @created_at)`
+        @match_status, @match_confidence, @ai_confidence, @created_at)`
   )
 
   const run = db.transaction(() => {
@@ -137,6 +144,7 @@ export function createQuotationWithLines(
         quotation_id: quotationId,
         catalog_item_id: input.catalogItemId,
         page_number: input.pageNumber,
+        panel_name: input.panelName,
         tag: input.tag,
         description: input.description,
         maker: input.maker,
@@ -150,6 +158,7 @@ export function createQuotationWithLines(
         quote_price: input.quotePrice,
         match_status: input.matchStatus,
         match_confidence: input.matchConfidence,
+        ai_confidence: input.aiConfidence,
         created_at: now
       })
     }
@@ -173,6 +182,109 @@ export function getQuotationById(id: string): Quotation | null {
     QuotationRow | undefined
   if (!row) return null
   return toQuotation(row, getLinesForQuotation(id))
+}
+
+export function getQuotationLineById(id: string): QuotationLine | null {
+  const row = getDb().prepare('SELECT * FROM quotation_lines WHERE id = ?').get(id) as
+    QuotationLineRow | undefined
+  return row ? toLine(row) : null
+}
+
+// Links a line to a catalog item and recomputes its pricing from that item,
+// preserving the line's existing qty/margin (set at quotation-generation
+// time, not something this resolve flow should reset).
+export function applyLineMatch(lineId: string, catalogItem: CatalogItem, confidence: number): void {
+  const db = getDb()
+  const current = db.prepare('SELECT qty, margin FROM quotation_lines WHERE id = ?').get(lineId) as
+    { qty: number; margin: number } | undefined
+  if (!current) throw new Error(`Quotation line not found: ${lineId}`)
+
+  const unitCost = catalogItem.unitPrice
+  const totalCost = current.qty * unitCost
+  const quotePrice = totalCost * current.margin
+
+  db.prepare(
+    `UPDATE quotation_lines
+     SET catalog_item_id = @catalog_item_id, description = @description, maker = @maker,
+         uom = @uom, list_price = @list_price, discount_factor = @discount_factor,
+         unit_cost = @unit_cost, total_cost = @total_cost, quote_price = @quote_price,
+         match_status = 'matched', match_confidence = @match_confidence
+     WHERE id = @id`
+  ).run({
+    id: lineId,
+    catalog_item_id: catalogItem.id,
+    description: catalogItem.description,
+    maker: catalogItem.maker,
+    uom: catalogItem.uom,
+    list_price: catalogItem.listPrice,
+    discount_factor: catalogItem.discountFactor,
+    unit_cost: unitCost,
+    total_cost: totalCost,
+    quote_price: quotePrice,
+    match_confidence: confidence
+  })
+}
+
+export interface UpdateQuotationLineFields {
+  description?: string
+  qty?: number
+  uom?: string
+  tag?: string
+}
+
+// Human value-correction from a confidence-resolve action — unlike
+// applyLineMatch, this never touches match_status/match_confidence/catalog_item_id,
+// since it's correcting extracted values, not re-matching a catalog item.
+export function updateQuotationLine(lineId: string, fields: UpdateQuotationLineFields): void {
+  const current = getQuotationLineById(lineId)
+  if (!current) throw new Error(`Quotation line not found: ${lineId}`)
+
+  const qty = fields.qty ?? current.qty
+  const totalCost = qty * current.unitCost
+  const quotePrice = totalCost * current.margin
+
+  getDb()
+    .prepare(
+      `UPDATE quotation_lines
+       SET description = @description, qty = @qty, uom = @uom, tag = @tag,
+           total_cost = @total_cost, quote_price = @quote_price
+       WHERE id = @id`
+    )
+    .run({
+      id: lineId,
+      description: fields.description ?? current.description,
+      qty,
+      uom: fields.uom ?? current.uom,
+      tag: fields.tag ?? current.tag,
+      total_cost: totalCost,
+      quote_price: quotePrice
+    })
+}
+
+export function updateQuotationLineMargin(lineId: string, margin: number): void {
+  const db = getDb()
+  const current = db.prepare('SELECT total_cost FROM quotation_lines WHERE id = ?').get(lineId) as
+    { total_cost: number } | undefined
+  if (!current) throw new Error(`Quotation line not found: ${lineId}`)
+
+  db.prepare('UPDATE quotation_lines SET margin = ?, quote_price = ? WHERE id = ?').run(
+    margin,
+    current.total_cost * margin,
+    lineId
+  )
+}
+
+// Bulk version of updateQuotationLineMargin, scoped to every line currently
+// in one panel — recomputes quote_price per row from each row's own
+// total_cost (a single UPDATE...WHERE, not a per-line loop).
+export function updatePanelMargin(quotationId: string, panelName: string, margin: number): void {
+  getDb()
+    .prepare(
+      `UPDATE quotation_lines
+       SET margin = @margin, quote_price = total_cost * @margin
+       WHERE quotation_id = @quotation_id AND panel_name = @panel_name`
+    )
+    .run({ margin, quotation_id: quotationId, panel_name: panelName })
 }
 
 export function getLatestQuotationForSld(sldId: string): Quotation | null {
@@ -213,4 +325,8 @@ export function approveQuotation(id: string): void {
 
 export function rejectQuotation(id: string): void {
   setQuotationStatus(id, 'rejected')
+}
+
+export function deleteQuotation(id: string): void {
+  getDb().prepare('DELETE FROM quotations WHERE id = ?').run(id)
 }

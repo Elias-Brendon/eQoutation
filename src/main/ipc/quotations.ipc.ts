@@ -12,16 +12,21 @@ import {
   setQuotationExcelPath,
   approveQuotation,
   rejectQuotation,
+  deleteQuotation,
+  updateQuotationLineMargin,
+  updatePanelMargin,
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
 import { createFlags, type CreateFlagInput } from '../db/repositories/flagsRepo'
 import { addComment, listComments } from '../db/repositories/quotationCommentsRepo'
 import { matchComponent } from '../quotation/catalogMatcher'
-import { writeQuotationWorkbook } from '../quotation/quotationExcelBuilder'
+import {
+  writeQuotationWorkbook,
+  deleteQuotationExcelFile
+} from '../quotation/quotationExcelBuilder'
+import { getSettings } from '../settings/settingsStore'
 import { IPC } from '@shared/types/ipc-contract'
 import type { Quotation, QuotationComment } from '@shared/types/entities'
-
-const DEFAULT_MARGIN = 1.35
 
 function generateQuotationCode(): string {
   const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -39,14 +44,16 @@ export function registerQuotationsIpc(): void {
     }
 
     const catalogItems = getAllCatalogItems()
+    const { defaultMargin, confidenceThreshold, preferredBrands } = getSettings()
 
     const lineInputs: QuotationLineInput[] = extraction.components.map((component) => {
-      const { catalogItem, confidence } = matchComponent(component, catalogItems)
+      const { catalogItem, confidence } = matchComponent(component, catalogItems, preferredBrands)
       const unitCost = catalogItem?.unitPrice ?? 0
       const totalCost = component.qty * unitCost
       return {
         catalogItemId: catalogItem?.id ?? null,
         pageNumber: component.pageNumber,
+        panelName: component.panelName,
         tag: component.tag,
         description: catalogItem?.description ?? component.description,
         maker: catalogItem?.maker ?? '',
@@ -56,10 +63,11 @@ export function registerQuotationsIpc(): void {
         discountFactor: catalogItem?.discountFactor ?? 1,
         unitCost,
         totalCost,
-        margin: DEFAULT_MARGIN,
-        quotePrice: totalCost * DEFAULT_MARGIN,
+        margin: defaultMargin,
+        quotePrice: totalCost * defaultMargin,
         matchStatus: catalogItem ? 'matched' : 'unknown',
-        matchConfidence: confidence
+        matchConfidence: confidence,
+        aiConfidence: component.confidence
       }
     })
 
@@ -80,6 +88,15 @@ export function registerQuotationsIpc(): void {
           origin: 'matcher',
           severity: 'warning',
           message: `Unmatched item: "${line.description}" (page ${line.pageNumber}) — no catalog match found.`,
+          pageNumber: line.pageNumber
+        })
+      }
+      if (line.aiConfidence < confidenceThreshold) {
+        flagInputs.push({
+          quotationLineId: line.id,
+          origin: 'ai',
+          severity: 'warning',
+          message: `Low-confidence extraction: "${line.description}" (page ${line.pageNumber}) — AI confidence ${(line.aiConfidence * 100).toFixed(0)}%.`,
           pageNumber: line.pageNumber
         })
       }
@@ -154,5 +171,26 @@ export function registerQuotationsIpc(): void {
 
   ipcMain.handle(IPC.quotationsListComments, (_event, quotationId: string) =>
     listComments(quotationId)
+  )
+
+  ipcMain.handle(IPC.quotationsDelete, (_event, quotationId: string): void => {
+    const quotation = getQuotationById(quotationId)
+    if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+    if (quotation.excelFilePath) deleteQuotationExcelFile(quotation.excelFilePath)
+    deleteQuotation(quotationId)
+  })
+
+  ipcMain.handle(
+    IPC.quotationLinesUpdateMargin,
+    (_event, lineId: string, margin: number): void => {
+      updateQuotationLineMargin(lineId, margin)
+    }
+  )
+
+  ipcMain.handle(
+    IPC.quotationPanelsUpdateMargin,
+    (_event, quotationId: string, panelName: string, margin: number): void => {
+      updatePanelMargin(quotationId, panelName, margin)
+    }
   )
 }

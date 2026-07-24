@@ -7,19 +7,30 @@ import {
   getLatestExtractionForSld
 } from '../db/repositories/extractionsRepo'
 import { readSldFile } from '../storage/sldStorage'
+import { listDistinctDescriptions } from '../db/repositories/catalogRepo'
 import { ClaudeProvider } from '../ai/ClaudeProvider'
-import type { AIProvider } from '../ai/AIProvider'
+import type { AIProvider, ExtractionResult } from '../ai/AIProvider'
+import { getSettings } from '../settings/settingsStore'
+import { getAnthropicApiKey } from '../settings/secretsStore'
 import { IPC } from '@shared/types/ipc-contract'
 import type { Extraction } from '@shared/types/entities'
 
 let provider: AIProvider | null = null
+let providerCacheKey: string | null = null
 
 function getProvider(): AIProvider {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = getAnthropicApiKey()
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add a real key.')
+    throw new Error(
+      'No Anthropic API key configured. Add one in Settings > API Keys (or set ANTHROPIC_API_KEY in .env for local dev).'
+    )
   }
-  if (!provider) provider = new ClaudeProvider(apiKey)
+  const { aiModel } = getSettings()
+  const cacheKey = `${apiKey}:${aiModel}`
+  if (!provider || providerCacheKey !== cacheKey) {
+    provider = new ClaudeProvider(apiKey, aiModel)
+    providerCacheKey = cacheKey
+  }
   return provider
 }
 
@@ -32,13 +43,35 @@ export function registerAiIpc(): void {
 
     try {
       const pdfBytes = readSldFile(sld.filePath)
-      const result = await getProvider().extractComponents({
-        pdfBytes,
-        filename: sld.filename,
-        onProgress: (progress) => {
-          event.sender.send(IPC.aiExtractionProgress, { sldId, ...progress })
+      const { enabledComponentTypes, maxExtractionRetries } = getSettings()
+      const catalogDescriptions = listDistinctDescriptions()
+
+      let result: ExtractionResult | undefined
+      let lastError: Error | undefined
+      for (let attempt = 0; attempt <= maxExtractionRetries; attempt++) {
+        try {
+          result = await getProvider().extractComponents({
+            pdfBytes,
+            filename: sld.filename,
+            enabledComponentTypes,
+            catalogDescriptions,
+            onProgress: (progress) => {
+              event.sender.send(IPC.aiExtractionProgress, { sldId, ...progress })
+            }
+          })
+          break
+        } catch (err) {
+          lastError = err as Error
+          if (attempt < maxExtractionRetries) {
+            event.sender.send(IPC.aiExtractionProgress, {
+              sldId,
+              pct: 0,
+              stage: `Retrying (attempt ${attempt + 2}/${maxExtractionRetries + 1})`
+            })
+          }
         }
-      })
+      }
+      if (!result) throw lastError ?? new Error('Extraction failed')
 
       completeExtraction(extraction.id, result.model, {
         components: result.components,

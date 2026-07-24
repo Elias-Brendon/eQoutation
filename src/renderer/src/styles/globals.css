@@ -37,10 +37,21 @@
   box-sizing: border-box;
 }
 
+html[data-font-scale='sm'] {
+  font-size: 14px;
+}
+html[data-font-scale='md'] {
+  font-size: 16px;
+}
+html[data-font-scale='lg'] {
+  font-size: 18px;
+}
+
 html,
 body,
 #root {
   height: 100%;
+  overflow: hidden;
 }
 
 body {

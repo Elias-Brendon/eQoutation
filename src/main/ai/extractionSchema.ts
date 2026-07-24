@@ -24,13 +24,32 @@ export const extractionJsonSchema = {
             description: 'Visible tag/label reference, e.g. "MCB-3". Empty if none.'
           },
           pageNumber: { type: 'integer', description: '1-based page this component appears on' },
+          panelName: {
+            type: 'string',
+            description:
+              'The panel/BOM title this component belongs to, formatted as ' +
+              '"<incomer rated current> <panel name>" (e.g. "250A DB-G1"). "UNKNOWN" if no ' +
+              'dashed bounding box / panel name was found on the page.'
+          },
           confidence: { type: 'number', description: 'Extraction confidence from 0 to 1' },
           notes: {
             type: 'string',
-            description: 'Anything ambiguous worth a human flagging. Empty if none.'
+            description:
+              'Short remarks: incoming source, busbar/cable feed type+size (and whether ' +
+              'inferred vs. drawing-stated), spare/future status, or anything else ambiguous. ' +
+              'Empty if none.'
           }
         },
-        required: ['description', 'qty', 'uom', 'tag', 'pageNumber', 'confidence', 'notes'],
+        required: [
+          'description',
+          'qty',
+          'uom',
+          'tag',
+          'pageNumber',
+          'panelName',
+          'confidence',
+          'notes'
+        ],
         additionalProperties: false
       }
     },
@@ -71,6 +90,7 @@ export function normalizeExtractionPayload(parsed: unknown): RawExtractionPayloa
       uom: String(c?.uom ?? ''),
       tag: String(c?.tag ?? ''),
       pageNumber: Number(c?.pageNumber) || 1,
+      panelName: String(c?.panelName ?? '').trim() || 'UNKNOWN',
       confidence: Math.min(1, Math.max(0, Number(c?.confidence) || 0)),
       notes: String(c?.notes ?? '')
     })),

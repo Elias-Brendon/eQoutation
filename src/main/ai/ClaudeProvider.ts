@@ -1,27 +1,36 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { AIProvider, ExtractParams, ExtractionResult } from './AIProvider'
 import { extractionJsonSchema, normalizeExtractionPayload } from './extractionSchema'
-import { extractionSystemPrompt } from './promptTemplates'
+import { buildExtractionSystemPrompt } from './promptTemplates'
+import type { TestApiKeyResult } from '@shared/types/entities'
 
-const MODEL = 'claude-sonnet-5'
-const MAX_TOKENS = 8192
+// Dense multi-page SLDs (many components + notes + flags) can need well more
+// than a few thousand output tokens; too low a budget truncates the JSON
+// mid-string ("Unterminated string in JSON") instead of raising a clear error.
+// 64k requires streaming (the SDK/HTTP timeout risk at this size otherwise).
+const MAX_TOKENS = 64000
 
-// There's no real token-level progress for a single non-streaming call, so
-// this ticks a heuristic estimate up to a cap while the request is in
-// flight — good enough for a live-feeling progress bar, not a precise ETA.
+// We stream the response (required at this max_tokens size to avoid HTTP
+// timeouts) but only consume the final assembled message, not per-token
+// events, so this ticks a heuristic progress estimate up to a cap while the
+// request is in flight — good enough for a live-feeling bar, not a precise ETA.
 const PROGRESS_TICK_MS = 400
 const PROGRESS_TICK_CAP = 88
 
 export class ClaudeProvider implements AIProvider {
   private client: Anthropic
+  private model: string
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model: string) {
     this.client = new Anthropic({ apiKey })
+    this.model = model
   }
 
   async extractComponents({
     pdfBytes,
     filename,
+    enabledComponentTypes,
+    catalogDescriptions,
     onProgress
   }: ExtractParams): Promise<ExtractionResult> {
     onProgress?.({ pct: 5, stage: 'Reading PDF' })
@@ -37,14 +46,14 @@ export class ClaudeProvider implements AIProvider {
 
     let message: Anthropic.Messages.Message
     try {
-      message = await this.client.messages.create({
-        model: MODEL,
+      const stream = this.client.messages.stream({
+        model: this.model,
         max_tokens: MAX_TOKENS,
         // Extended thinking is on by default for this model and, left
         // unbounded, consumes the entire token budget before any structured
         // output is emitted. This task needs the budget spent on output.
         thinking: { type: 'disabled' },
-        system: extractionSystemPrompt,
+        system: buildExtractionSystemPrompt(enabledComponentTypes, catalogDescriptions),
         messages: [
           {
             role: 'user',
@@ -63,11 +72,20 @@ export class ClaudeProvider implements AIProvider {
         ],
         output_config: { format: { type: 'json_schema', schema: extractionJsonSchema } }
       })
+      message = await stream.finalMessage()
     } finally {
       clearInterval(ticker)
     }
 
     onProgress?.({ pct: 92, stage: 'Parsing response' })
+
+    if (message.stop_reason === 'max_tokens') {
+      throw new Error(
+        `Claude's response was truncated at the ${MAX_TOKENS}-token output limit before finishing ` +
+          'the JSON. This SLD likely has more components/detail than the budget allows — try again ' +
+          'or split the diagram into fewer pages per extraction.'
+      )
+    }
 
     const textBlock = message.content.find(
       (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
@@ -81,6 +99,18 @@ export class ClaudeProvider implements AIProvider {
 
     onProgress?.({ pct: 100, stage: 'Done' })
 
-    return { model: MODEL, components, flags }
+    return { model: this.model, components, flags }
+  }
+}
+
+export async function testAnthropicApiKey(apiKey: string): Promise<TestApiKeyResult> {
+  try {
+    const client = new Anthropic({ apiKey })
+    // Listing models is a cheap, zero-generation call — it only checks that
+    // the key authenticates, without spending any output tokens.
+    await client.models.list({ limit: 1 })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
   }
 }

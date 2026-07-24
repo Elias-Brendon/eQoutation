@@ -79,6 +79,11 @@ export function createFlags(quotationId: string, inputs: CreateFlagInput[]): Fla
   return rows.map(toFlag)
 }
 
+export function getFlagById(id: string): Flag | null {
+  const row = getDb().prepare('SELECT * FROM flags WHERE id = ?').get(id) as FlagRow | undefined
+  return row ? toFlag(row) : null
+}
+
 export function listFlagsByQuotation(quotationId: string): Flag[] {
   const rows = getDb()
     .prepare('SELECT * FROM flags WHERE quotation_id = ? ORDER BY created_at ASC')

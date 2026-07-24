@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  Circle,
   ChevronLeft,
   ChevronRight,
   Eraser,
@@ -8,6 +9,9 @@ import {
   Maximize2,
   MessageCirclePlus,
   Pencil,
+  Redo2,
+  Square,
+  Type,
   Undo2,
   ZoomIn,
   ZoomOut
@@ -18,6 +22,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { AnnotationCanvas } from '@renderer/components/pdf/AnnotationCanvas'
+import { TextEntryOverlay } from '@renderer/components/pdf/TextEntryOverlay'
 import { useSldFile } from '@renderer/state/queries/useSldFile'
 import {
   useAnnotations,
@@ -38,12 +43,24 @@ const MAX_DEVICE_PIXEL_RATIO = 2
 const RENDER_DEBOUNCE_MS = 200
 
 const ANNOTATION_COLORS = ['#ef4444', '#f2652c', '#eab308', '#6b8ee8']
+const MIN_STROKE_WIDTH = 0.5
+const MAX_STROKE_WIDTH = 10
+const STROKE_WIDTH_STEP = 0.5
+const DEFAULT_STROKE_WIDTH = 2.5
 
-type Tool = 'pan' | 'pen' | 'pin'
+type Tool = 'pan' | 'pen' | 'pin' | 'circle' | 'rectangle' | 'text'
+type ShapeTool = Extract<Tool, 'circle' | 'rectangle'>
+type TextLikeTool = Extract<Tool, 'pin' | 'text'>
+
+interface HistoryEntry {
+  op: 'create' | 'delete'
+  annotations: Annotation[]
+}
 
 interface PdfViewerProps {
   sldId: string
   filename: string
+  focusPage?: number
 }
 
 interface Point {
@@ -55,12 +72,25 @@ function devicePixelRatioCapped(): number {
   return Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
 }
 
-export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Element {
+export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError } = useSldFile(sldId)
+  // Spans the toolbar + containerRef together — its own height comes from
+  // ITS parent (fixed by flexbox), not from its children, so the resize
+  // observer below can watch it to catch real window/pane resizes without
+  // being tripped by the toolbar internally wrapping (which changes
+  // containerRef's share of that fixed height, but not the total).
+  const rootRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dragRef = useRef<{ start: Point; pan: Point } | null>(null)
   const strokeRef = useRef<AnnotationPoint[]>([])
+  const shapeStartRef = useRef<AnnotationPoint | null>(null)
+  const shapeCurrentRef = useRef<AnnotationPoint | null>(null)
+  // Ephemeral, renderer-only undo/redo — reset whenever the page changes.
+  // historyVersion exists purely to force a re-render after mutating these
+  // refs (so Undo/Redo button disabled-state reflects the current stack).
+  const historyRef = useRef<HistoryEntry[]>([])
+  const redoRef = useRef<HistoryEntry[]>([])
   // Only one pdf.js render may target a canvas at a time — every render
   // path funnels through renderPageAtScale, which cancels this first.
   const renderTaskRef = useRef<RenderTask | null>(null)
@@ -74,6 +104,19 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   const [pageNumber, setPageNumber] = useState(1)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
+  // Mirrors zoom/pan for synchronous reads in handleWheel/zoomBy. Needed
+  // because nesting a setPan(...) dispatch inside setZoom(...)'s updater
+  // function is impure — StrictMode double-invokes updaters in dev to catch
+  // exactly that, and the nested dispatch firing twice compounds pan drift
+  // on every tick (verified: what looked like the PDF "flying away" on zoom).
+  // Reading fresh values from refs instead lets both setters be called
+  // directly, with no nested dispatch to double-invoke.
+  const zoomRef = useRef(zoom)
+  const panRef = useRef(pan)
+  useEffect(() => {
+    zoomRef.current = zoom
+    panRef.current = pan
+  })
   // CSS-pixel size of the page at zoom=1 ("fit"). Stays fixed across zoom —
   // the wrapping layer's transform handles the visual scale. Only the
   // canvas's internal bitmap resolution changes with zoom, for sharpness.
@@ -84,11 +127,44 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
 
   const [tool, setTool] = useState<Tool>('pan')
   const [color, setColor] = useState(ANNOTATION_COLORS[0])
+  const [strokeWidth, setStrokeWidth] = useState<number>(DEFAULT_STROKE_WIDTH)
   const [liveStroke, setLiveStroke] = useState<AnnotationPoint[] | null>(null)
+  const [liveShape, setLiveShape] = useState<{
+    shapeType: ShapeTool
+    points: [AnnotationPoint, AnnotationPoint]
+  } | null>(null)
+  const [textEntry, setTextEntry] = useState<{
+    point: AnnotationPoint
+    shapeType: TextLikeTool
+  } | null>(null)
+  const [historyVersion, setHistoryVersion] = useState(0)
 
   const { data: annotations = [] } = useAnnotations(sldId, pageNumber)
   const createAnnotation = useCreateAnnotation()
   const deleteAnnotation = useDeleteAnnotation()
+
+  // Undo/redo is scoped per page — switching pages starts fresh rather than
+  // letting an undo on one page reach back into a different page's history.
+  useEffect(() => {
+    historyRef.current = []
+    redoRef.current = []
+    setHistoryVersion((v) => v + 1)
+  }, [sldId, pageNumber])
+
+  const pushHistory = (entry: HistoryEntry): void => {
+    historyRef.current.push(entry)
+    redoRef.current = []
+    setHistoryVersion((v) => v + 1)
+  }
+
+  // Cross-reference jump from the quotation table (Stage 22). No-op when
+  // undefined, so this stays backward compatible for callers that don't pass it.
+  useEffect(() => {
+    if (focusPage === undefined || !pdfDoc) return
+    const clamped = Math.min(Math.max(focusPage, 1), pdfDoc.numPages)
+    setPageNumber(clamped)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPage, pdfDoc])
 
   // Load the document whenever the file bytes change.
   useEffect(() => {
@@ -159,6 +235,13 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   // and on container resize (and via the explicit "fit to view" action).
   const fitAndRender = useCallback(async (): Promise<void> => {
     if (!pdfDoc || !containerRef.current || !canvasRef.current) return
+    // The container can still be mid-layout (e.g. right after a split-view
+    // pane resize) with a transitional near-zero size. Fitting against that
+    // produces a bogus tiny scale that then gets violently corrected a
+    // moment later by the resize observer — which looks like the PDF
+    // "flying away" mid-zoom. Bail and let the resize observer retry once
+    // the container has actually settled.
+    if (containerRef.current.clientWidth < 40 || containerRef.current.clientHeight < 40) return
     const generation = ++renderGenerationRef.current
     const page = await pdfDoc.getPage(pageNumber)
     if (generation !== renderGenerationRef.current || !containerRef.current || !canvasRef.current)
@@ -177,13 +260,16 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     canvas.style.width = `${cssViewport.width}px`
     canvas.style.height = `${cssViewport.height}px`
 
+    const centeredPan = {
+      x: (containerRef.current.clientWidth - cssViewport.width) / 2,
+      y: (containerRef.current.clientHeight - cssViewport.height) / 2
+    }
+    zoomRef.current = 1
+    panRef.current = centeredPan
     setFitScale(newFitScale)
     setBaseSize({ width: cssViewport.width, height: cssViewport.height })
     setZoom(1)
-    setPan({
-      x: (containerRef.current.clientWidth - cssViewport.width) / 2,
-      y: (containerRef.current.clientHeight - cssViewport.height) / 2
-    })
+    setPan(centeredPan)
 
     await renderPageAtScale(newFitScale * devicePixelRatioCapped())
   }, [pdfDoc, pageNumber, renderPageAtScale])
@@ -193,8 +279,17 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   }, [fitAndRender])
 
   // Keep the fit sized to the panel as the app window / layout changes size.
+  // Observes rootRef (toolbar + containerRef together), not containerRef
+  // itself: rootRef's height comes from ITS parent (fixed by flexbox), so
+  // it only actually changes on a real window/pane resize — not when the
+  // toolbar internally wraps to two lines (e.g. switching drawing tools
+  // adds a stroke-width slider + color swatches), which changes
+  // containerRef's share of that fixed height without changing the total.
+  // Observing containerRef directly would treat that reflow as a real
+  // resize and reset an in-progress zoom/pan back to "fit" — which is what
+  // switching tools mid-zoom looked like the PDF "flying away".
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!rootRef.current) return
     let timeout: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
       clearTimeout(timeout)
@@ -202,7 +297,7 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
         fitAndRender()
       }, 150)
     })
-    observer.observe(containerRef.current)
+    observer.observe(rootRef.current)
     return () => {
       clearTimeout(timeout)
       observer.disconnect()
@@ -230,8 +325,9 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     return { x: localX / baseSize.width, y: localY / baseSize.height }
   }
 
-  const handleWheel = (e: React.WheelEvent): void => {
+  const handleWheel = useCallback((e: WheelEvent): void => {
     e.preventDefault()
+    e.stopPropagation()
     const container = containerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
@@ -239,29 +335,58 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     const mouseY = e.clientY - rect.top
     const direction = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP
 
-    setZoom((prevZoom) => {
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
-      setPan((prevPan) => ({
-        x: mouseX - ((mouseX - prevPan.x) / prevZoom) * newZoom,
-        y: mouseY - ((mouseY - prevPan.y) / prevZoom) * newZoom
-      }))
-      return newZoom
-    })
-  }
+    const prevZoom = zoomRef.current
+    const prevPan = panRef.current
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
+    const newPan = {
+      x: mouseX - ((mouseX - prevPan.x) / prevZoom) * newZoom,
+      y: mouseY - ((mouseY - prevPan.y) / prevZoom) * newZoom
+    }
+    zoomRef.current = newZoom
+    panRef.current = newPan
+    setZoom(newZoom)
+    setPan(newPan)
+  }, [])
+
+  // Attached natively with { passive: false } rather than via React's
+  // onWheel prop: React (and browsers generally) may treat wheel listeners
+  // as passive by default in some configurations, which silently makes
+  // preventDefault() a no-op — the browser's native scroll/zoom then fights
+  // with this custom pan/zoom, which is what "the PDF drifts out of frame
+  // while scrolling" looks like from the outside.
+  //
+  // fitScale is in the dependency array as a mount-timing safeguard: on a
+  // real cold load, this component first renders its loading-spinner return
+  // (see isLoading below) before the container div — and therefore
+  // containerRef.current — exists. handleWheel alone never changes, so an
+  // effect depending only on it would attach against a still-null ref once
+  // and never retry. fitScale flips from 0 to non-zero only after
+  // fitAndRender runs, which is only reachable once the container is
+  // guaranteed to exist, so it reliably triggers the retry.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => container.removeEventListener('wheel', handleWheel)
+  }, [handleWheel, fitScale])
 
   const zoomBy = (direction: number): void => {
-    setZoom((prevZoom) => {
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
-      if (containerRef.current) {
-        const centerX = containerRef.current.clientWidth / 2
-        const centerY = containerRef.current.clientHeight / 2
-        setPan((prevPan) => ({
-          x: centerX - ((centerX - prevPan.x) / prevZoom) * newZoom,
-          y: centerY - ((centerY - prevPan.y) / prevZoom) * newZoom
-        }))
+    const prevZoom = zoomRef.current
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * direction))
+    zoomRef.current = newZoom
+    setZoom(newZoom)
+
+    if (containerRef.current) {
+      const centerX = containerRef.current.clientWidth / 2
+      const centerY = containerRef.current.clientHeight / 2
+      const prevPan = panRef.current
+      const newPan = {
+        x: centerX - ((centerX - prevPan.x) / prevZoom) * newZoom,
+        y: centerY - ((centerY - prevPan.y) / prevZoom) * newZoom
       }
-      return newZoom
-    })
+      panRef.current = newPan
+      setPan(newPan)
+    }
   }
 
   const handleMouseDown = (e: React.MouseEvent): void => {
@@ -276,23 +401,41 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     const point = screenToNormalized(e.clientX, e.clientY)
     if (!point) return
 
-    if (tool === 'pin') {
-      const commentText = window.prompt('Comment for this pin:')
-      if (!commentText || !commentText.trim()) return
-      createAnnotation.mutate({
-        sldId,
-        pageNumber,
-        shapeType: 'pin',
-        points: [point],
-        color,
-        commentText: commentText.trim()
-      })
+    if (tool === 'pin' || tool === 'text') {
+      setTextEntry({ point, shapeType: tool })
+      return
+    }
+
+    if (tool === 'circle' || tool === 'rectangle') {
+      shapeStartRef.current = point
+      shapeCurrentRef.current = point
+      setLiveShape({ shapeType: tool, points: [point, point] })
       return
     }
 
     // tool === 'pen'
     strokeRef.current = [point]
     setLiveStroke([point])
+  }
+
+  const handleTextEntryConfirm = (text: string): void => {
+    if (!textEntry) return
+    createAnnotation.mutate(
+      {
+        sldId,
+        pageNumber,
+        shapeType: textEntry.shapeType,
+        points: [textEntry.point],
+        color,
+        commentText: text
+      },
+      { onSuccess: (created) => pushHistory({ op: 'create', annotations: [created] }) }
+    )
+    setTextEntry(null)
+  }
+
+  const handleTextEntryCancel = (): void => {
+    setTextEntry(null)
   }
 
   // Pan dragging: track globally so it keeps working outside the container bounds.
@@ -329,13 +472,17 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     }
     const handleUp = (): void => {
       if (strokeRef.current.length > 1) {
-        createAnnotation.mutate({
-          sldId,
-          pageNumber,
-          shapeType: 'freehand',
-          points: strokeRef.current,
-          color
-        })
+        createAnnotation.mutate(
+          {
+            sldId,
+            pageNumber,
+            shapeType: 'freehand',
+            points: strokeRef.current,
+            color,
+            strokeWidth
+          },
+          { onSuccess: (created) => pushHistory({ op: 'create', annotations: [created] }) }
+        )
       }
       strokeRef.current = []
       setLiveStroke(null)
@@ -350,21 +497,122 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, liveStroke === null])
 
-  const handlePinClick = (annotation: Annotation): void => {
-    const shouldDelete = window.confirm(`${annotation.commentText}\n\nDelete this comment?`)
-    if (shouldDelete) {
-      deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+  // Circle/rectangle drag-to-draw: mirrors the freehand effect above (global
+  // listeners so a fast drag isn't cut off by leaving the container), using
+  // refs for the authoritative start/end points since handleUp is defined
+  // once per drag and would otherwise close over a stale liveShape state.
+  useEffect(() => {
+    if ((tool !== 'circle' && tool !== 'rectangle') || !liveShape) return
+
+    const handleMove = (e: MouseEvent): void => {
+      const point = screenToNormalized(e.clientX, e.clientY)
+      if (!point || !shapeStartRef.current) return
+      shapeCurrentRef.current = point
+      setLiveShape({ shapeType: tool, points: [shapeStartRef.current, point] })
+    }
+    const handleUp = (): void => {
+      const start = shapeStartRef.current
+      const end = shapeCurrentRef.current
+      if (start && end && (Math.abs(end.x - start.x) > 0.002 || Math.abs(end.y - start.y) > 0.002)) {
+        createAnnotation.mutate(
+          {
+            sldId,
+            pageNumber,
+            shapeType: tool,
+            points: [start, end],
+            color,
+            strokeWidth
+          },
+          { onSuccess: (created) => pushHistory({ op: 'create', annotations: [created] }) }
+        )
+      }
+      shapeStartRef.current = null
+      shapeCurrentRef.current = null
+      setLiveShape(null)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, liveShape === null])
+
+  const handleMarkerClick = (annotation: Annotation): void => {
+    const label = annotation.commentText ?? 'this annotation'
+    const shouldDelete = window.confirm(`${label}\n\nDelete this comment?`)
+    if (!shouldDelete) return
+    deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+    pushHistory({ op: 'delete', annotations: [annotation] })
+  }
+
+  // Re-creates a batch of annotations (used by undo-a-delete and
+  // redo-a-create) and invokes onDone with the newly-created rows — with
+  // fresh ids, since recreated annotations don't need to reuse old ones —
+  // once every recreation in the batch has resolved.
+  const recreateAnnotations = (source: Annotation[], onDone: (created: Annotation[]) => void): void => {
+    const created: Annotation[] = []
+    for (const annotation of source) {
+      createAnnotation.mutate(
+        {
+          sldId,
+          pageNumber,
+          shapeType: annotation.shapeType,
+          points: annotation.points,
+          color: annotation.color,
+          strokeWidth: annotation.strokeWidth,
+          commentText: annotation.commentText ?? undefined
+        },
+        {
+          onSuccess: (newAnnotation) => {
+            created.push(newAnnotation)
+            if (created.length === source.length) onDone(created)
+          }
+        }
+      )
     }
   }
 
   const handleUndo = (): void => {
-    const last = annotations[annotations.length - 1]
-    if (last) deleteAnnotation.mutate({ id: last.id, sldId, pageNumber })
+    const entry = historyRef.current.pop()
+    if (!entry) return
+    setHistoryVersion((v) => v + 1)
+
+    if (entry.op === 'create') {
+      for (const annotation of entry.annotations) {
+        deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+      }
+      redoRef.current.push({ op: 'create', annotations: entry.annotations })
+    } else {
+      recreateAnnotations(entry.annotations, (created) => {
+        redoRef.current.push({ op: 'delete', annotations: created })
+      })
+    }
+  }
+
+  const handleRedo = (): void => {
+    const entry = redoRef.current.pop()
+    if (!entry) return
+    setHistoryVersion((v) => v + 1)
+
+    if (entry.op === 'create') {
+      recreateAnnotations(entry.annotations, (created) => {
+        historyRef.current.push({ op: 'create', annotations: created })
+      })
+    } else {
+      for (const annotation of entry.annotations) {
+        deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
+      }
+      historyRef.current.push({ op: 'delete', annotations: entry.annotations })
+    }
   }
 
   const handleClearPage = (): void => {
     if (annotations.length === 0) return
     if (!window.confirm(`Clear all ${annotations.length} annotation(s) on this page?`)) return
+    pushHistory({ op: 'delete', annotations: [...annotations] })
     for (const annotation of annotations) {
       deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
     }
@@ -389,7 +637,10 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface">
+    <div
+      ref={rootRef}
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-border bg-surface"
+    >
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-1">
           <Button
@@ -438,6 +689,44 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
           >
             <MessageCirclePlus className="h-3.5 w-3.5" />
           </Button>
+          <Button
+            variant={tool === 'text' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('text')}
+            title="Add text"
+          >
+            <Type className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={tool === 'circle' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('circle')}
+            title="Draw circle"
+          >
+            <Circle className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={tool === 'rectangle' ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setTool('rectangle')}
+            title="Draw rectangle"
+          >
+            <Square className="h-3.5 w-3.5" />
+          </Button>
+          <div className="mx-1 flex items-center gap-1.5" title="Brush / stroke size">
+            <input
+              type="range"
+              min={MIN_STROKE_WIDTH}
+              max={MAX_STROKE_WIDTH}
+              step={STROKE_WIDTH_STEP}
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(Number(e.target.value))}
+              className="w-16 accent-accent"
+            />
+            <span className="w-9 shrink-0 font-mono text-[10px] text-text-secondary">
+              {strokeWidth.toFixed(1)}px
+            </span>
+          </div>
           <div className="mx-1 flex items-center gap-1">
             {ANNOTATION_COLORS.map((c) => (
               <button
@@ -456,10 +745,20 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
             variant="ghost"
             size="sm"
             onClick={handleUndo}
-            disabled={annotations.length === 0}
-            title="Undo last annotation"
+            disabled={historyRef.current.length === 0}
+            title="Undo"
+            data-history-version={historyVersion}
           >
             <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRedo}
+            disabled={redoRef.current.length === 0}
+            title="Redo"
+          >
+            <Redo2 className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
@@ -498,12 +797,13 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
           tool === 'pan' && (isDragging ? 'cursor-grabbing' : 'cursor-grab'),
           tool !== 'pan' && 'cursor-crosshair'
         )}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
       >
         <div
           className="absolute left-0 top-0"
           style={{
+            width: baseSize.width,
+            height: baseSize.height,
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: '0 0'
           }}
@@ -514,9 +814,20 @@ export function PdfViewer({ sldId, filename }: PdfViewerProps): React.JSX.Elemen
             cssHeight={baseSize.height}
             annotations={annotations}
             liveStroke={liveStroke}
+            liveShape={liveShape}
             liveColor={color}
-            onPinClick={handlePinClick}
+            liveStrokeWidth={strokeWidth}
+            onMarkerClick={handleMarkerClick}
           />
+          {textEntry && (
+            <TextEntryOverlay
+              leftPct={textEntry.point.x}
+              topPct={textEntry.point.y}
+              color={color}
+              onConfirm={handleTextEntryConfirm}
+              onCancel={handleTextEntryCancel}
+            />
+          )}
         </div>
       </div>
     </div>

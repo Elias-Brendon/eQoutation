@@ -31,3 +31,16 @@ export function useCatalogSearch(query: string, enabled: boolean): UseQueryResul
     enabled
   })
 }
+
+export function useOpenCatalogFolder(): UseMutationResult<void, Error, void> {
+  return useMutation({
+    mutationFn: () => window.api.catalog.openFolder()
+  })
+}
+
+export function useDistinctMakers(): UseQueryResult<string[]> {
+  return useQuery({
+    queryKey: ['catalog', 'distinctMakers'],
+    queryFn: () => window.api.catalog.listDistinctMakers()
+  })
+}

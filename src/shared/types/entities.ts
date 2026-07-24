@@ -1,14 +1,94 @@
+export type UserRole = 'admin'
+export type AuthStatusState = 'needsSetup' | 'unauthenticated' | 'authenticated'
+
+export interface AuthUser {
+  id: string
+  username: string
+  role: UserRole
+  hasRecoveryQuestion: boolean
+}
+
+export interface AuthStatus {
+  state: AuthStatusState
+  user: AuthUser | null
+}
+
+export const SECURITY_QUESTIONS = [
+  "What was your first pet's name?",
+  'What city were you born in?',
+  'What was the make of your first car?',
+  "What is your mother's maiden name?",
+  'What was the name of your first school?'
+] as const
+
+export interface SetupInput {
+  username: string
+  password: string
+  securityQuestion: string
+  securityAnswer: string
+}
+
+export interface LoginInput {
+  username: string
+  password: string
+  rememberMe: boolean
+}
+
+export interface RecoveryQuestionResult {
+  question: string | null
+}
+
+export interface ResetPasswordInput {
+  username: string
+  answer: string
+  newPassword: string
+}
+
+export interface SetSecurityQuestionInput {
+  securityQuestion: string
+  securityAnswer: string
+}
+
+export type FontScale = 'sm' | 'md' | 'lg'
+
+export interface AppSettings {
+  catalogDir: string
+  preferredBrands: string[]
+  enabledComponentTypes: string[]
+  aiModel: string
+  confidenceThreshold: number
+  maxExtractionRetries: number
+  defaultMargin: number
+  fontScale: FontScale
+}
+
+export interface ChangePasswordInput {
+  oldPassword: string
+  newPassword: string
+}
+
+export interface TestApiKeyResult {
+  ok: boolean
+  error?: string
+}
+
+export interface PickCatalogDirResult {
+  settings: AppSettings
+  reload: CatalogReloadResult
+}
+
 export type SldStatus = 'done' | 'in_progress' | 'rejected'
 export type QuotationStatus = 'generating' | 'pending_review' | 'approved' | 'rejected'
 export type FlagOrigin = 'matcher' | 'ai' | 'human'
 export type FlagStatus = 'open' | 'resolved'
 export type FlagSeverity = 'info' | 'warning'
-export type CenterTab = 'pdf' | 'quotation'
+export type PanelMode = 'split' | 'pdf-full' | 'quotation-full'
 
 export interface Project {
   id: string
   name: string
   substationLabel: string
+  currency: string
   aiProgressPct: number
   createdAt: string
   updatedAt: string
@@ -42,6 +122,7 @@ export interface QuotationLine {
   quotationId: string
   catalogItemId: string | null
   pageNumber: number
+  panelName: string
   tag: string
   description: string
   maker: string
@@ -55,6 +136,7 @@ export interface QuotationLine {
   quotePrice: number
   matchStatus: QuotationLineMatchStatus
   matchConfidence: number
+  aiConfidence: number
 }
 
 export interface Quotation {
@@ -100,7 +182,7 @@ export interface QuotationComment {
   createdAt: string
 }
 
-export type AnnotationShapeType = 'freehand' | 'pin'
+export type AnnotationShapeType = 'freehand' | 'pin' | 'circle' | 'rectangle' | 'text'
 export type AnnotationAuthorType = 'human' | 'ai'
 
 export interface AnnotationPoint {
@@ -116,6 +198,7 @@ export interface Annotation {
   shapeType: AnnotationShapeType
   points: AnnotationPoint[]
   color: string
+  strokeWidth: number
   commentText: string | null
   createdAt: string
 }
@@ -126,6 +209,7 @@ export interface CreateAnnotationInput {
   shapeType: AnnotationShapeType
   points: AnnotationPoint[]
   color: string
+  strokeWidth?: number
   commentText?: string
 }
 
@@ -158,6 +242,49 @@ export interface CatalogReloadResult {
   error?: string
 }
 
+export interface NewCatalogItemInput {
+  sku: string
+  description: string
+  maker?: string
+  family?: string
+  series?: string
+  listPrice?: number
+  discountFactor?: number
+  unitPrice?: number
+  uom?: string
+}
+
+export interface ResolveUnmatchedLineResult {
+  matched: boolean
+  catalogItem: CatalogItem | null
+}
+
+export type FeedbackAction = 'accepted' | 'corrected' | 'flagged_for_later'
+
+export interface FeedbackLogEntry {
+  id: string
+  quotationLineId: string
+  fieldChanged: string
+  aiValue: string
+  humanValue: string
+  action: FeedbackAction
+  note: string | null
+  createdAt: string
+}
+
+export interface FeedbackResolveLineInput {
+  lineId: string
+  flagId: string | null
+  action: FeedbackAction
+  fields?: {
+    description?: string
+    qty?: number
+    uom?: string
+    tag?: string
+  }
+  note?: string
+}
+
 export type ExtractionStatus = 'running' | 'done' | 'error'
 export type ExtractionFlagSeverity = 'info' | 'warning'
 
@@ -167,6 +294,7 @@ export interface ExtractedComponent {
   uom: string
   tag: string
   pageNumber: number
+  panelName: string
   confidence: number
   notes: string
 }

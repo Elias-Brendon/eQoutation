@@ -7,9 +7,12 @@ import {
 } from '@tanstack/react-query'
 import type { Quotation, QuotationComment } from '@shared/types/entities'
 import { sldsQueryKey } from './useSlds'
-import { flagsQueryKey } from './useFlags'
+import { flagsQueryKey, openFlagCountsQueryKey } from './useFlags'
 
-const quotationQueryKey = (sldId: string): readonly [string, string] => ['quotation', sldId]
+export const quotationQueryKey = (sldId: string): readonly [string, string] => [
+  'quotation',
+  sldId
+]
 const projectQuotationsQueryKey = (projectId: string): readonly [string, string] => [
   'quotations',
   projectId
@@ -123,6 +126,51 @@ export function useAddQuotationComment(): UseMutationResult<
     mutationFn: ({ quotationId, body }) => window.api.quotations.addComment(quotationId, body),
     onSuccess: (_comment, { quotationId }) => {
       queryClient.invalidateQueries({ queryKey: quotationCommentsQueryKey(quotationId) })
+    }
+  })
+}
+
+export function useUpdateLineMargin(): UseMutationResult<
+  void,
+  Error,
+  { lineId: string; margin: number; sldId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ lineId, margin }) => window.api.quotations.updateLineMargin(lineId, margin),
+    onSuccess: (_data, { sldId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    }
+  })
+}
+
+export function useUpdatePanelMargin(): UseMutationResult<
+  void,
+  Error,
+  { quotationId: string; panelName: string; margin: number; sldId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, panelName, margin }) =>
+      window.api.quotations.updatePanelMargin(quotationId, panelName, margin),
+    onSuccess: (_data, { sldId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    }
+  })
+}
+
+export function useDeleteQuotation(): UseMutationResult<
+  void,
+  Error,
+  { quotationId: string; sldId: string; projectId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId }) => window.api.quotations.delete(quotationId),
+    onSuccess: (_data, { sldId, projectId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+      queryClient.invalidateQueries({ queryKey: ['quotations'] })
+      queryClient.invalidateQueries({ queryKey: openFlagCountsQueryKey(projectId) })
     }
   })
 }

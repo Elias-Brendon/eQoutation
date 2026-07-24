@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { FolderOpen, RefreshCw, Search } from 'lucide-react'
 import { Modal } from '@renderer/components/common/Modal'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
@@ -7,6 +7,7 @@ import { Badge } from '@renderer/components/common/Badge'
 import {
   useCatalogSearch,
   useCatalogStatus,
+  useOpenCatalogFolder,
   useReloadCatalog
 } from '@renderer/state/queries/useCatalog'
 
@@ -31,6 +32,7 @@ export function CatalogModal({ open, onClose }: CatalogModalProps): React.JSX.El
 
   const { data: status } = useCatalogStatus()
   const reloadCatalog = useReloadCatalog()
+  const openCatalogFolder = useOpenCatalogFolder()
   const { data: items = [], isFetching } = useCatalogSearch(debouncedSearch, open)
 
   return (
@@ -46,17 +48,28 @@ export function CatalogModal({ open, onClose }: CatalogModalProps): React.JSX.El
               {formatTimestamp(status?.lastSyncedAt ?? null)}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => reloadCatalog.mutate()}
-            disabled={reloadCatalog.isPending}
-          >
-            <RefreshCw
-              className={reloadCatalog.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
-            />
-            Reload
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openCatalogFolder.mutate()}
+              title="Open the catalog folder to drop in an .xlsx file"
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              Open folder
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reloadCatalog.mutate()}
+              disabled={reloadCatalog.isPending}
+            >
+              <RefreshCw
+                className={reloadCatalog.isPending ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
+              />
+              Reload
+            </Button>
+          </div>
         </div>
 
         {reloadCatalog.data && !reloadCatalog.data.ok && (

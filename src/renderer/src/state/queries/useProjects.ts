@@ -23,3 +23,15 @@ export function useCreateProject(): UseMutationResult<Project, Error, CreateProj
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
   })
 }
+
+export function useUpdateProjectCurrency(): UseMutationResult<
+  Project,
+  Error,
+  { projectId: string; currency: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, currency }) => window.api.projects.updateCurrency(projectId, currency),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
+  })
+}

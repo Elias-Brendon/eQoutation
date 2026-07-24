@@ -11,7 +11,7 @@ import {
 } from '../db/repositories/catalogRepo'
 import type { CatalogReloadResult, CatalogStatus } from '@shared/types/entities'
 
-const HEADER_ALIASES: Record<keyof CatalogItemInput, string[]> = {
+export const HEADER_ALIASES: Record<keyof CatalogItemInput, string[]> = {
   sku: ['type', 'sku'],
   description: ['description'],
   maker: ['maker', 'manufacturer'],
@@ -54,7 +54,7 @@ function cellNumber(value: ExcelJS.CellValue): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function findHeaderRow(
+export function findHeaderRow(
   sheet: ExcelJS.Worksheet
 ): { rowNumber: number; columns: Map<string, number> } | null {
   const maxScan = Math.min(sheet.rowCount, 10)
@@ -72,7 +72,10 @@ function findHeaderRow(
   return null
 }
 
-function columnFor(columns: Map<string, number>, field: keyof CatalogItemInput): number | null {
+export function columnFor(
+  columns: Map<string, number>,
+  field: keyof CatalogItemInput
+): number | null {
   for (const alias of HEADER_ALIASES[field]) {
     const col = columns.get(alias)
     if (col) return col
