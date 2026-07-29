@@ -11,10 +11,6 @@ export default defineConfig({
     include: ['src/**/*.dbtest.ts'],
     environment: 'node',
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true
-      }
-    }
+    singleFork: true
   }
 })
