@@ -17,6 +17,13 @@ describe('migration runner', () => {
     expect(appliedVersions).toEqual(expectedVersions)
   })
 
+  it('adds input_tokens and output_tokens columns to extractions', () => {
+    const db = getDb()
+    const columns = db.prepare('PRAGMA table_info(extractions)').all() as { name: string }[]
+    const columnNames = columns.map((c) => c.name)
+    expect(columnNames).toEqual(expect.arrayContaining(['input_tokens', 'output_tokens']))
+  })
+
   it('creates the catalog_items table with the columns replaceCatalogItems expects', () => {
     const db = getDb()
     const columns = db.prepare('PRAGMA table_info(catalog_items)').all() as { name: string }[]

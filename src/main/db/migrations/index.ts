@@ -16,6 +16,7 @@ import { sql as m0015 } from './0015_project_currency_iso'
 import { sql as m0016 } from './0016_fx_rate_cache'
 import { sql as m0017 } from './0017_quotation_line_component_type'
 import { sql as m0018 } from './0018_catalog_items_sku_unique'
+import { sql as m0019 } from './0019_extraction_token_usage'
 
 export interface Migration {
   version: number
@@ -41,5 +42,6 @@ export const migrations: Migration[] = [
   { version: 15, name: '0015_project_currency_iso', sql: m0015 },
   { version: 16, name: '0016_fx_rate_cache', sql: m0016 },
   { version: 17, name: '0017_quotation_line_component_type', sql: m0017 },
-  { version: 18, name: '0018_catalog_items_sku_unique', sql: m0018 }
+  { version: 18, name: '0018_catalog_items_sku_unique', sql: m0018 },
+  { version: 19, name: '0019_extraction_token_usage', sql: m0019 }
 ]
