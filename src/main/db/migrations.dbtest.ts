@@ -1,10 +1,6 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { closeDb, getDb } from './index'
 import { migrations } from './migrations'
-
-beforeAll(() => {
-  process.env.EQOUTATION_DB_PATH = ':memory:'
-})
 
 afterEach(() => {
   closeDb()

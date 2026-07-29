@@ -1,11 +1,7 @@
 import { randomUUID } from 'crypto'
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { closeDb, getDb } from '../index'
 import { getAllCatalogItems, insertCatalogItem, replaceCatalogItems } from './catalogRepo'
-
-beforeAll(() => {
-  process.env.EQOUTATION_DB_PATH = ':memory:'
-})
 
 beforeEach(() => {
   closeDb()

@@ -11,6 +11,9 @@ export default defineConfig({
     include: ['src/**/*.dbtest.ts'],
     environment: 'node',
     pool: 'forks',
-    singleFork: true
+    fileParallelism: false,
+    env: {
+      EQOUTATION_DB_PATH: ':memory:'
+    }
   }
 })
