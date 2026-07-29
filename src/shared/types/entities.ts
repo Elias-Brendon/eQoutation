@@ -343,8 +343,16 @@ export interface Extraction {
   components: ExtractedComponent[]
   flags: ExtractionFlag[]
   error: string | null
+  inputTokens: number | null
+  outputTokens: number | null
   createdAt: string
   completedAt: string | null
+}
+
+export interface ProjectTokenUsage {
+  totalInputTokens: number
+  totalOutputTokens: number
+  extractionCount: number
 }
 
 export interface ExtractionProgressEvent {

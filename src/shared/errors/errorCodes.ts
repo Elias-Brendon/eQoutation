@@ -27,6 +27,7 @@ export const ERROR_CODES = {
   AI_RESPONSE_UNREADABLE: { code: 'AI-006', message: 'Unreadable AI response' },
   AI_REQUEST_FAILED: { code: 'AI-007', message: 'Extraction failed' },
   AI_KEY_TEST_FAILED: { code: 'AI-008', message: 'Anthropic key test failed' },
+  AI_ALREADY_EXTRACTED: { code: 'AI-009', message: 'SLD already extracted — re-extraction requires confirmation' },
 
   // Records that no longer exist
   DB_PROJECT_NOT_FOUND: { code: 'DB-001', message: 'Project not found' },
