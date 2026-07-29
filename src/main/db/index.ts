@@ -12,8 +12,19 @@ export function getDb(): Database.Database {
   return db
 }
 
+// Test-only: closes and clears the cached connection so the next getDb()
+// call opens a fresh one. Used between tests to get an isolated :memory: DB
+// per test rather than sharing state across the whole test file.
+export function closeDb(): void {
+  db?.close()
+  db = null
+}
+
 function openDb(): Database.Database {
-  const dbPath = join(app.getPath('userData'), 'eqoutation.sqlite')
+  // EQOUTATION_DB_PATH lets tests point at an isolated (e.g. ':memory:')
+  // database instead of the user's real eqoutation.sqlite. Only ever set by
+  // test setup — never set in the packaged app.
+  const dbPath = process.env.EQOUTATION_DB_PATH ?? join(app.getPath('userData'), 'eqoutation.sqlite')
   const instance = new Database(dbPath)
   instance.pragma('journal_mode = WAL')
   instance.pragma('foreign_keys = ON')
