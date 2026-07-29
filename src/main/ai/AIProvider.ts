@@ -9,6 +9,10 @@ export interface ExtractionResult {
   model: string
   components: ExtractedComponent[]
   flags: ExtractionFlag[]
+  usage: {
+    inputTokens: number
+    outputTokens: number
+  }
 }
 
 export interface ExtractParams {

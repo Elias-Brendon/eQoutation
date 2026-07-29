@@ -116,7 +116,15 @@ export class ClaudeProvider implements AIProvider {
 
     onProgress?.({ pct: 100, stage: 'Done' })
 
-    return { model: this.model, components, flags }
+    return {
+      model: this.model,
+      components,
+      flags,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens
+      }
+    }
   }
 }
 
