@@ -17,16 +17,21 @@ export function useExtraction(sldId: string | null): UseQueryResult<Extraction |
   })
 }
 
-export function useExtractSld(): UseMutationResult<Extraction, Error, string> {
+export interface ExtractSldInput {
+  sldId: string
+  force?: boolean
+}
+
+export function useExtractSld(): UseMutationResult<Extraction, Error, ExtractSldInput> {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (sldId: string) => window.api.ai.extractSld(sldId),
+    mutationFn: ({ sldId, force }: ExtractSldInput) => window.api.ai.extractSld(sldId, { force }),
     onSuccess: (extraction) => {
       queryClient.setQueryData(extractionQueryKey(extraction.sldId), extraction)
     },
     // The main process persists a failed extraction row before rethrowing —
     // refetch so the panel picks up the error state instead of staying blank.
-    onError: (_error, sldId) => {
+    onError: (_error, { sldId }) => {
       queryClient.invalidateQueries({ queryKey: extractionQueryKey(sldId) })
     }
   })
