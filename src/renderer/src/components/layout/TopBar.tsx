@@ -6,6 +6,7 @@ import { Button } from '@renderer/components/common/Button'
 import { cn } from '@renderer/lib/cn'
 import { useUpdateProjectCurrencySettings } from '@renderer/state/queries/useProjects'
 import { useFxRate } from '@renderer/state/queries/useFx'
+import { useProjectTokenUsage } from '@renderer/state/queries/useAiUsage'
 import { CURRENCIES } from '@shared/constants/currencies'
 import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
 
@@ -62,6 +63,7 @@ export function TopBar({
       )}
 
       {project && <CurrencyField project={project} compact={compact} />}
+      {project && <TokenUsageBadge projectId={project.id} />}
 
       <div className="ml-4 flex flex-1 items-center gap-3">
         {project && (
@@ -307,6 +309,23 @@ function CurrencyField({
         </>
       )}
     </div>
+  )
+}
+
+function TokenUsageBadge({ projectId }: { projectId: string }): React.JSX.Element | null {
+  const { data: usage } = useProjectTokenUsage(projectId)
+  if (!usage || usage.extractionCount === 0) return null
+
+  const total = usage.totalInputTokens + usage.totalOutputTokens
+  const label = total < 1000 ? String(total) : `${(total / 1000).toFixed(1)}K`
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-text-secondary"
+      title={`${usage.totalInputTokens.toLocaleString()} input / ${usage.totalOutputTokens.toLocaleString()} output tokens across ${usage.extractionCount} extraction(s)`}
+    >
+      {label} tokens
+    </span>
   )
 }
 

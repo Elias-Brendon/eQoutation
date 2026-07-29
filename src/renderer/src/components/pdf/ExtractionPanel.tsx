@@ -20,8 +20,18 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
   const pct = liveProgress?.pct ?? (running ? 5 : 0)
   const stage = liveProgress?.stage ?? (running ? 'Starting…' : '')
 
+  const alreadyExtracted = extraction?.status === 'done'
+
   const handleGenerate = (): void => {
-    extractSld.mutate(sldId)
+    if (alreadyExtracted) {
+      const confirmed = window.confirm(
+        'This SLD was already extracted. Re-running will call the AI again and use additional tokens. Continue?'
+      )
+      if (!confirmed) return
+      extractSld.mutate({ sldId, force: true })
+      return
+    }
+    extractSld.mutate({ sldId })
   }
 
   return (
@@ -31,7 +41,14 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
           <Sparkles className="h-3.5 w-3.5 text-accent" />
           AI extraction
           {extraction && extraction.status === 'done' && (
-            <Badge tone="success">{extraction.components.length} components</Badge>
+            <>
+              <Badge tone="success">{extraction.components.length} components</Badge>
+              {extraction.inputTokens !== null && extraction.outputTokens !== null && (
+                <Badge tone="neutral">
+                  {formatTokenCount(extraction.inputTokens)} in / {formatTokenCount(extraction.outputTokens)} out
+                </Badge>
+              )}
+            </>
           )}
           {extraction?.status === 'error' && <Badge tone="danger">Failed</Badge>}
         </div>
@@ -41,7 +58,7 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
-          {extraction ? 'Re-run' : 'Generate'}
+          {alreadyExtracted ? 'Re-extract…' : extraction ? 'Re-run' : 'Generate'}
         </Button>
       </div>
 
@@ -115,4 +132,9 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
       )}
     </div>
   )
+}
+
+function formatTokenCount(n: number): string {
+  if (n < 1000) return String(n)
+  return `${(n / 1000).toFixed(1)}K`
 }
