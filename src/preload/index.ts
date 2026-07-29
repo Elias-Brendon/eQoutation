@@ -23,6 +23,7 @@ import type {
   NewCatalogItemInput,
   PickCatalogDirResult,
   Project,
+  ProjectTokenUsage,
   Quotation,
   QuotationComment,
   QuotationLine,
@@ -107,9 +108,12 @@ const api = {
       ipcRenderer.invoke(IPC.catalogListDistinctMakers)
   },
   ai: {
-    extractSld: (sldId: string): Promise<Extraction> => ipcRenderer.invoke(IPC.aiExtractSld, sldId),
+    extractSld: (sldId: string, options?: { force?: boolean }): Promise<Extraction> =>
+      ipcRenderer.invoke(IPC.aiExtractSld, sldId, options),
     getExtraction: (sldId: string): Promise<Extraction | null> =>
       ipcRenderer.invoke(IPC.aiGetExtraction, sldId),
+    getProjectTokenUsage: (projectId: string): Promise<ProjectTokenUsage> =>
+      ipcRenderer.invoke(IPC.aiGetProjectTokenUsage, projectId),
     onProgress: (callback: (progress: ExtractionProgressEvent) => void): (() => void) => {
       const listener = (_event: unknown, payload: ExtractionProgressEvent): void =>
         callback(payload)

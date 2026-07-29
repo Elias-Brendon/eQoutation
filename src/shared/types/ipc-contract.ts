@@ -32,6 +32,7 @@ export const IPC = {
   catalogOpenFolder: 'catalog:openFolder',
   aiExtractSld: 'ai:extractSld',
   aiGetExtraction: 'ai:getExtraction',
+  aiGetProjectTokenUsage: 'ai:getProjectTokenUsage',
   aiExtractionProgress: 'ai:extractionProgress',
   quotationsGenerate: 'quotations:generate',
   quotationsGetBySld: 'quotations:getBySld',
