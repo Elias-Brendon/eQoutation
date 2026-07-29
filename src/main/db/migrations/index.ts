@@ -11,6 +11,11 @@ import { sql as m0010 } from './0010_annotation_shapes'
 import { sql as m0011 } from './0011_confidence_feedback'
 import { sql as m0012 } from './0012_panel_name'
 import { sql as m0013 } from './0013_project_currency'
+import { sql as m0014 } from './0014_quotation_line_sku'
+import { sql as m0015 } from './0015_project_currency_iso'
+import { sql as m0016 } from './0016_fx_rate_cache'
+import { sql as m0017 } from './0017_quotation_line_component_type'
+import { sql as m0018 } from './0018_catalog_items_sku_unique'
 
 export interface Migration {
   version: number
@@ -31,5 +36,10 @@ export const migrations: Migration[] = [
   { version: 10, name: '0010_annotation_shapes', sql: m0010 },
   { version: 11, name: '0011_confidence_feedback', sql: m0011 },
   { version: 12, name: '0012_panel_name', sql: m0012 },
-  { version: 13, name: '0013_project_currency', sql: m0013 }
+  { version: 13, name: '0013_project_currency', sql: m0013 },
+  { version: 14, name: '0014_quotation_line_sku', sql: m0014 },
+  { version: 15, name: '0015_project_currency_iso', sql: m0015 },
+  { version: 16, name: '0016_fx_rate_cache', sql: m0016 },
+  { version: 17, name: '0017_quotation_line_component_type', sql: m0017 },
+  { version: 18, name: '0018_catalog_items_sku_unique', sql: m0018 }
 ]

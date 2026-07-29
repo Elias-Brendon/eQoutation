@@ -47,21 +47,48 @@ export interface CatalogItemInput {
   sourceRow?: number
 }
 
+// Upserts by SKU (keeping each existing row's id and its FK references from
+// quotation_lines intact) instead of delete-all-and-reinsert: the previous
+// approach deleted every row and reinserted with fresh random ids, which
+// throws "FOREIGN KEY constraint failed" the moment any quotation_line
+// still references an existing catalog_items row — i.e. on every reload
+// after the first quotation has ever been matched. Rows whose SKU no longer
+// appears in the source file are removed only if nothing still references
+// them; still-referenced-but-removed rows are left in place so historical
+// quotations don't break.
 export function replaceCatalogItems(items: CatalogItemInput[]): number {
   const db = getDb()
   const now = new Date().toISOString()
 
-  const insert = db.prepare(
+  const upsert = db.prepare(
     `INSERT INTO catalog_items
        (id, sku, description, maker, family, series, list_price, discount_factor, unit_price, uom, source_row, updated_at)
      VALUES
-       (@id, @sku, @description, @maker, @family, @series, @list_price, @discount_factor, @unit_price, @uom, @source_row, @updated_at)`
+       (@id, @sku, @description, @maker, @family, @series, @list_price, @discount_factor, @unit_price, @uom, @source_row, @updated_at)
+     ON CONFLICT(sku) DO UPDATE SET
+       description = excluded.description,
+       maker = excluded.maker,
+       family = excluded.family,
+       series = excluded.series,
+       list_price = excluded.list_price,
+       discount_factor = excluded.discount_factor,
+       unit_price = excluded.unit_price,
+       uom = excluded.uom,
+       source_row = excluded.source_row,
+       updated_at = excluded.updated_at`
+  )
+
+  const deleteStale = db.prepare(
+    `DELETE FROM catalog_items
+     WHERE sku NOT IN (SELECT value FROM json_each(@skus))
+       AND id NOT IN (
+         SELECT DISTINCT catalog_item_id FROM quotation_lines WHERE catalog_item_id IS NOT NULL
+       )`
   )
 
   const runAll = db.transaction((rows: CatalogItemInput[]) => {
-    db.prepare('DELETE FROM catalog_items').run()
     for (const row of rows) {
-      insert.run({
+      upsert.run({
         id: randomUUID(),
         sku: row.sku,
         description: row.description,
@@ -76,10 +103,11 @@ export function replaceCatalogItems(items: CatalogItemInput[]): number {
         updated_at: now
       })
     }
+    deleteStale.run({ skus: JSON.stringify(rows.map((r) => r.sku)) })
   })
 
   runAll(items)
-  return items.length
+  return countCatalogItems()
 }
 
 export function getAllCatalogItems(): CatalogItem[] {
@@ -163,12 +191,34 @@ export function listDistinctMakers(): string[] {
 // component-identifier accuracy) — every distinct catalog description, so
 // the model can phrase extractions toward wording the catalog matcher
 // already knows.
-export function listDistinctDescriptions(): string[] {
+// Preferred-brand descriptions are sorted first (a description "wins" the
+// preferred rank if any catalog item carrying it is from a preferred maker)
+// so the AI extraction prompt's glossary leads with what the company
+// actually prefers to quote, without dropping non-preferred descriptions —
+// the AI still needs full glossary coverage for accurate wording.
+export function listDistinctDescriptions(preferredBrands: string[] = []): string[] {
+  if (preferredBrands.length === 0) {
+    const rows = getDb()
+      .prepare(
+        "SELECT DISTINCT description FROM catalog_items WHERE description != '' ORDER BY description"
+      )
+      .all() as { description: string }[]
+    return rows.map((row) => row.description)
+  }
+
+  const placeholders = preferredBrands.map(() => '?').join(', ')
   const rows = getDb()
     .prepare(
-      "SELECT DISTINCT description FROM catalog_items WHERE description != '' ORDER BY description"
+      `SELECT description, MIN(CASE WHEN LOWER(maker) IN (${placeholders}) THEN 0 ELSE 1 END) AS pref_rank
+       FROM catalog_items
+       WHERE description != ''
+       GROUP BY description
+       ORDER BY pref_rank ASC, description ASC`
     )
-    .all() as { description: string }[]
+    .all(...preferredBrands.map((b) => b.trim().toLowerCase())) as {
+    description: string
+    pref_rank: number
+  }[]
   return rows.map((row) => row.description)
 }
 
