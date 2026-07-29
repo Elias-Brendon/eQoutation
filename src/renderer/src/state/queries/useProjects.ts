@@ -5,7 +5,11 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
-import type { CreateProjectInput, Project } from '@shared/types/entities'
+import type {
+  CreateProjectInput,
+  Project,
+  UpdateProjectCurrencySettingsInput
+} from '@shared/types/entities'
 
 export const projectsQueryKey = ['projects'] as const
 
@@ -24,14 +28,14 @@ export function useCreateProject(): UseMutationResult<Project, Error, CreateProj
   })
 }
 
-export function useUpdateProjectCurrency(): UseMutationResult<
+export function useUpdateProjectCurrencySettings(): UseMutationResult<
   Project,
   Error,
-  { projectId: string; currency: string }
+  UpdateProjectCurrencySettingsInput
 > {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ projectId, currency }) => window.api.projects.updateCurrency(projectId, currency),
+    mutationFn: (input) => window.api.projects.updateCurrencySettings(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
   })
 }

@@ -9,7 +9,7 @@ An Electron application with React and TypeScript
 ## Project Setup
 
 ### Install
-
+4
 ```bash
 $ npm install
 ```

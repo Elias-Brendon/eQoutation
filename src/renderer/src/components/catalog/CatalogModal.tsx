@@ -10,10 +10,14 @@ import {
   useOpenCatalogFolder,
   useReloadCatalog
 } from '@renderer/state/queries/useCatalog'
+import { BASE_CURRENCY, currencySymbol } from '@shared/constants/currencies'
+import { convertFromBase } from '@shared/lib/currencyConversion'
+import type { Project } from '@shared/types/entities'
 
 interface CatalogModalProps {
   open: boolean
   onClose: () => void
+  project?: Project | null
 }
 
 function formatTimestamp(iso: string | null): string {
@@ -21,9 +25,11 @@ function formatTimestamp(iso: string | null): string {
   return new Date(iso).toLocaleString()
 }
 
-export function CatalogModal({ open, onClose }: CatalogModalProps): React.JSX.Element {
+export function CatalogModal({ open, onClose, project }: CatalogModalProps): React.JSX.Element {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const exchangeRate = project?.exchangeRate ?? 1
+  const currency = currencySymbol(project?.currency ?? BASE_CURRENCY)
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search), 200)
@@ -113,7 +119,8 @@ export function CatalogModal({ open, onClose }: CatalogModalProps): React.JSX.El
                   <td className="px-3 py-1.5 text-text-secondary">{item.maker}</td>
                   <td className="px-3 py-1.5 text-text-secondary">{item.family}</td>
                   <td className="px-3 py-1.5 text-right text-text-primary">
-                    ${item.unitPrice.toFixed(2)}
+                    {currency}
+                    {convertFromBase(item.unitPrice, exchangeRate).toFixed(2)}
                   </td>
                   <td className="px-3 py-1.5 text-text-secondary">{item.uom}</td>
                 </tr>

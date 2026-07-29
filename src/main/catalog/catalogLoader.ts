@@ -9,6 +9,7 @@ import {
   replaceCatalogItems,
   type CatalogItemInput
 } from '../db/repositories/catalogRepo'
+import { formatErrorCode } from '@shared/errors/errorCodes'
 import type { CatalogReloadResult, CatalogStatus } from '@shared/types/entities'
 
 export const HEADER_ALIASES: Record<keyof CatalogItemInput, string[]> = {
@@ -138,7 +139,7 @@ export async function reloadCatalog(): Promise<CatalogReloadResult> {
       ok: false,
       itemCount: 0,
       sourcePath: null,
-      error: `No .xlsx file found in ${catalogDir}`
+      error: formatErrorCode('CAT_NO_XLSX_IN_DIR')
     }
   }
 
@@ -149,15 +150,15 @@ export async function reloadCatalog(): Promise<CatalogReloadResult> {
         ok: false,
         itemCount: 0,
         sourcePath,
-        error:
-          'No recognizable header row (expected DESCRIPTION + TYPE/SKU columns) or no data rows'
+        error: formatErrorCode('CAT_NO_HEADER_ROW')
       }
     }
     const count = replaceCatalogItems(items)
     recordCatalogSync(sourcePath, count)
     return { ok: true, itemCount: count, sourcePath }
   } catch (err) {
-    return { ok: false, itemCount: 0, sourcePath, error: (err as Error).message }
+    console.error('[catalog:reloadCatalog]', err)
+    return { ok: false, itemCount: 0, sourcePath, error: formatErrorCode('CAT_PARSE_FAILED') }
   }
 }
 

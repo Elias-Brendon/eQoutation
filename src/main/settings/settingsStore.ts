@@ -20,9 +20,15 @@ function defaultSettings(): AppSettings {
   return {
     catalogDir: defaultCatalogDir(),
     preferredBrands: [],
+    preferredBrandsByType: {},
     enabledComponentTypes: DEFAULT_COMPONENT_TYPES,
+    customExtractionRules: [],
     aiModel: DEFAULT_AI_MODEL,
-    confidenceThreshold: 0.7,
+    // Real extraction data shows the model's self-reported confidence
+    // clustering between 0.3-0.7 even for correct reads — 0.7 flagged ~88%
+    // of lines for review, drowning the signal. 0.5 is a more realistic
+    // out-of-the-box default; still user-adjustable in Settings > AI Model.
+    confidenceThreshold: 0.5,
     maxExtractionRetries: 0,
     defaultMargin: 1.35,
     fontScale: 'md'
@@ -44,7 +50,9 @@ export function getSettings(): AppSettings {
     return {
       catalogDir: parsed.catalogDir ?? defaults.catalogDir,
       preferredBrands: parsed.preferredBrands ?? defaults.preferredBrands,
+      preferredBrandsByType: parsed.preferredBrandsByType ?? defaults.preferredBrandsByType,
       enabledComponentTypes: parsed.enabledComponentTypes ?? defaults.enabledComponentTypes,
+      customExtractionRules: parsed.customExtractionRules ?? defaults.customExtractionRules,
       aiModel: parsed.aiModel ?? defaults.aiModel,
       confidenceThreshold: parsed.confidenceThreshold ?? defaults.confidenceThreshold,
       maxExtractionRetries: parsed.maxExtractionRetries ?? defaults.maxExtractionRetries,

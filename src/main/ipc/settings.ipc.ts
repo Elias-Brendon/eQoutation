@@ -1,17 +1,18 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog } from 'electron'
 import { getSettings, updateSettings } from '../settings/settingsStore'
 import { reloadCatalog } from '../catalog/catalogLoader'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type { AppSettings, PickCatalogDirResult } from '@shared/types/entities'
 
 export function registerSettingsIpc(): void {
-  ipcMain.handle(IPC.settingsGet, (): AppSettings => getSettings())
+  safeHandle(IPC.settingsGet, (): AppSettings => getSettings())
 
-  ipcMain.handle(IPC.settingsUpdate, (_event, patch: Partial<AppSettings>): AppSettings =>
+  safeHandle(IPC.settingsUpdate, (_event, patch: Partial<AppSettings>): AppSettings =>
     updateSettings(patch)
   )
 
-  ipcMain.handle(IPC.settingsPickCatalogDir, async (): Promise<PickCatalogDirResult | null> => {
+  safeHandle(IPC.settingsPickCatalogDir, async (): Promise<PickCatalogDirResult | null> => {
     const focusedWindow = BrowserWindow.getFocusedWindow() ?? undefined
     const result = await dialog.showOpenDialog(focusedWindow as BrowserWindow, {
       title: 'Select the folder containing your catalog .xlsx file',

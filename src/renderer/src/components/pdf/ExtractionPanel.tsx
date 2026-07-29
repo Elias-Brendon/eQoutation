@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useUiStore } from '@renderer/state/useUiStore'
 import { useExtractSld, useExtraction } from '@renderer/state/queries/useExtraction'
 
@@ -59,7 +60,7 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
       {extraction?.status === 'error' && (
         <div className="flex items-start gap-1.5 rounded-md border border-danger/40 bg-danger-bg px-2.5 py-1.5 text-xs text-danger">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          {extraction.error}
+          <ErrorMessage message={extraction.error ?? 'Extraction failed.'} />
         </div>
       )}
 

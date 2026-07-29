@@ -62,7 +62,13 @@ PFR instructions
 - Return CAP BANKs for each step KVAR the voltage is mention otherwise use 525 V CAP BANK X  quantity for example 2x2.5 KVAR return 2.5KVAR 515 V CAP BANK 
 - return contactor either they're indicated on the diagram or not for each step format  -  AC6B CONTACTOR X  quantity for example 10kVAR AC6B CONTACTOR 
 - if the diagram indicated a reactor add a reactor for each step ,format KVAR 7% REACTOR , ALUMINIUM WINDING , for example 10KVAR 7% REACTOR , ALUMINIUM WINDING
-- 
+- Include Exhaust fan regardless if indicated or not ,return Exhaust Fan
+- Return Selector Switch , ONOFF
+- return Control Cable x 60 
+
+15. Ignore Fireman switch 
+16. ignore SEB meter , commando spocket
+
 
 ## Step 3 — Assign busbar or cable to every breaker
 
@@ -71,7 +77,7 @@ Every breaker is fed by either **busbar** or **cable**.
 - If the drawing states the cable size, use it.
 - If not stated, use the breaker's **rated current** and select from Table 2 (Cable Sizing).
 - TODO: Rule for when to use busbar instead of cable (e.g. incomer and outgoings ≥ ___A use busbar; all others use cable). <!-- fill in -->
-- TODO: Cable length source — drawing? default per circuit type? fixed allowance? <!-- fill in -->
+- If its 1 or 2 Poles then cable quantity x 4 , if 3-4 Poles then cable qauntity x 8  
 - Busbar sizes are selected from Table 1 by rated current.
 
 ### Table 1 — Busbar Rating (IEE Regulation)

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Archive, Database, Flag, Loader2, Plus, Upload, User } from 'lucide-react'
+import { Archive, Database, Flag, Loader2, Plus, RefreshCw, Upload, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Logo } from '@renderer/components/animation/Logo'
 import { Button } from '@renderer/components/common/Button'
-import { useUpdateProjectCurrency } from '@renderer/state/queries/useProjects'
+import { cn } from '@renderer/lib/cn'
+import { useUpdateProjectCurrencySettings } from '@renderer/state/queries/useProjects'
+import { useFxRate } from '@renderer/state/queries/useFx'
+import { CURRENCIES } from '@shared/constants/currencies'
 import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
 
 interface TopBarProps {
@@ -13,6 +16,9 @@ interface TopBarProps {
   manualFlagCount: number
   extractionProgress: ExtractionProgressEvent | null
   username: string | null
+  // Below the app's narrow-window breakpoint — drops button text labels
+  // (icon + tooltip only) so the bar never pushes controls off-window.
+  compact: boolean
   onUploadClick: () => void
   onNewProject: () => void
   onOpenCatalog: () => void
@@ -28,6 +34,7 @@ export function TopBar({
   manualFlagCount,
   extractionProgress,
   username,
+  compact,
   onUploadClick,
   onNewProject,
   onOpenCatalog,
@@ -54,15 +61,26 @@ export function TopBar({
         <div className="text-sm text-text-muted">No project yet</div>
       )}
 
-      {project && <CurrencyField project={project} />}
+      {project && <CurrencyField project={project} compact={compact} />}
 
       <div className="ml-4 flex flex-1 items-center gap-3">
         {project && (
           <>
-            <span className="shrink-0 font-mono text-[11px] tracking-wider text-text-muted">
-              {progressLabel}
-            </span>
-            <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-raised">
+            {!compact && (
+              <span
+                className="shrink-0 font-mono text-[11px] tracking-wider text-text-muted"
+                title={progressLabel}
+              >
+                {progressLabel}
+              </span>
+            )}
+            <div
+              className={cn(
+                'h-1.5 overflow-hidden rounded-full bg-surface-raised',
+                compact ? 'w-16' : 'w-40'
+              )}
+              title={progressLabel}
+            >
               <motion.div
                 className="h-full rounded-full bg-accent"
                 initial={{ width: 0 }}
@@ -76,14 +94,20 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
-        <FlagBadge tone="text-warning" count={matcherFlagCount} label="Matcher" />
-        <FlagBadge tone="text-danger" count={aiFlagCount} label="AI" />
-        <FlagBadge tone="text-warning" count={manualFlagCount} label="Manual" />
+        <FlagBadge tone="text-warning" count={matcherFlagCount} label="Matcher" compact={compact} />
+        <FlagBadge tone="text-danger" count={aiFlagCount} label="AI" compact={compact} />
+        <FlagBadge tone="text-warning" count={manualFlagCount} label="Manual" compact={compact} />
       </div>
 
-      <Button variant="outline" size="md" onClick={onOpenCatalog} title="Browse catalog">
+      <Button
+        variant="outline"
+        size="md"
+        onClick={onOpenCatalog}
+        title="Browse catalog"
+        aria-label="Browse catalog"
+      >
         <Database className="h-4 w-4" />
-        Catalog
+        {!compact && 'Catalog'}
       </Button>
 
       <Button
@@ -91,24 +115,40 @@ export function TopBar({
         size="md"
         onClick={onExportProject}
         disabled={!project || exportPending}
-        title={project ? 'Export project bundle (SLDs + quotations + manifest)' : undefined}
+        title={
+          project ? 'Export project bundle (SLDs + quotations + manifest) — Ctrl+E' : undefined
+        }
+        aria-label="Export project"
       >
         {exportPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Archive className="h-4 w-4" />
         )}
-        Export project
+        {!compact && 'Export project'}
       </Button>
 
-      <Button variant="outline" size="md" onClick={onNewProject}>
+      <Button
+        variant="outline"
+        size="md"
+        onClick={onNewProject}
+        title="New project — Ctrl+Shift+N"
+        aria-label="New project"
+      >
         <Plus className="h-4 w-4" />
-        New Project
+        {!compact && 'New Project'}
       </Button>
 
-      <Button variant="accent" size="md" onClick={onUploadClick} disabled={!project}>
+      <Button
+        variant="accent"
+        size="md"
+        onClick={onUploadClick}
+        disabled={!project}
+        title="Upload PDF — Ctrl+U"
+        aria-label="Upload PDF"
+      >
         <Upload className="h-4 w-4" />
-        Upload PDF
+        {!compact && 'Upload PDF'}
       </Button>
 
       <Button
@@ -116,48 +156,156 @@ export function TopBar({
         size="md"
         onClick={onOpenSettings}
         title="Open settings"
+        aria-label="Open settings"
         className="max-w-32"
       >
         <User className="h-4 w-4 shrink-0" />
-        <span className="truncate">{username ?? 'Account'}</span>
+        {!compact && <span className="truncate">{username ?? 'Account'}</span>}
       </Button>
     </header>
   )
 }
 
-function CurrencyField({ project }: { project: Project }): React.JSX.Element {
-  const [value, setValue] = useState(project.currency)
-  const updateCurrency = useUpdateProjectCurrency()
+function CurrencyField({
+  project,
+  compact
+}: {
+  project: Project
+  compact: boolean
+}): React.JSX.Element {
+  const updateCurrencySettings = useUpdateProjectCurrencySettings()
+  const fetchRate = useFxRate()
+  const [rateInput, setRateInput] = useState(project.exchangeRate.toString())
+  const isMyr = project.currency === 'MYR'
 
   useEffect(() => {
-    setValue(project.currency)
-  }, [project.id, project.currency])
+    setRateInput(project.exchangeRate.toString())
+  }, [project.id, project.exchangeRate])
 
-  const commit = (): void => {
-    const trimmed = value.trim()
-    if (!trimmed || trimmed === project.currency) {
-      setValue(project.currency)
+  const handleCurrencyChange = (newCurrency: string): void => {
+    if (newCurrency === 'MYR') {
+      updateCurrencySettings.mutate({
+        projectId: project.id,
+        currency: 'MYR',
+        exchangeRate: 1,
+        exchangeRateIsManual: false
+      })
       return
     }
-    updateCurrency.mutate({ projectId: project.id, currency: trimmed })
+    // Switching currency: fetch a rate (served from the once-a-day cache if
+    // already fetched today) as the starting point. If that fails (offline),
+    // still switch currency with a rate of 1 so the UI never dead-ends — the
+    // user can type a manual rate.
+    fetchRate.mutate(
+      { targetCurrency: newCurrency },
+      {
+        onSuccess: (result) => {
+          updateCurrencySettings.mutate({
+            projectId: project.id,
+            currency: newCurrency,
+            exchangeRate: result.rate,
+            exchangeRateIsManual: false
+          })
+        },
+        onError: () => {
+          updateCurrencySettings.mutate({
+            projectId: project.id,
+            currency: newCurrency,
+            exchangeRate: 1,
+            exchangeRateIsManual: false
+          })
+        }
+      }
+    )
+  }
+
+  const handleRefresh = (): void => {
+    fetchRate.mutate(
+      { targetCurrency: project.currency, forceRefresh: true },
+      {
+        onSuccess: (result) => {
+          updateCurrencySettings.mutate({
+            projectId: project.id,
+            currency: project.currency,
+            exchangeRate: result.rate,
+            exchangeRateIsManual: false
+          })
+          setRateInput(result.rate.toString())
+        }
+      }
+    )
+  }
+
+  const commitManualRate = (): void => {
+    const parsed = Number(rateInput)
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed === project.exchangeRate) {
+      setRateInput(project.exchangeRate.toString())
+      return
+    }
+    updateCurrencySettings.mutate({
+      projectId: project.id,
+      currency: project.currency,
+      exchangeRate: parsed,
+      exchangeRateIsManual: true
+    })
   }
 
   return (
     <div
       className="flex shrink-0 items-center gap-1.5"
-      title="Currency symbol used in this project's quotations"
+      title="Currency and exchange rate used in this project's quotations (base: MYR)"
     >
-      <span className="font-mono text-[11px] tracking-wider text-text-muted">CURRENCY</span>
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-        }}
-        maxLength={5}
-        className="h-7 w-14 rounded border border-border-strong bg-surface px-1.5 text-center text-xs text-text-primary focus:border-accent focus:outline-none"
-      />
+      {!compact && (
+        <span className="font-mono text-[11px] tracking-wider text-text-muted">CURRENCY</span>
+      )}
+      <select
+        value={project.currency}
+        onChange={(e) => handleCurrencyChange(e.target.value)}
+        className="h-7 rounded border border-border-strong bg-surface px-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
+      >
+        {CURRENCIES.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.code}
+          </option>
+        ))}
+      </select>
+      {!isMyr && (
+        <>
+          <input
+            value={rateInput}
+            onChange={(e) => setRateInput(e.target.value)}
+            onBlur={commitManualRate}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+            title={
+              project.exchangeRateIsManual
+                ? 'Manual rate override — click refresh to use the live rate again'
+                : 'Rate from Frankfurter, cached once a day — edit to override manually'
+            }
+            className="h-7 w-16 rounded border border-border-strong bg-surface px-1.5 text-center text-xs text-text-primary focus:border-accent focus:outline-none"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={fetchRate.isPending}
+            title="Refresh live rate (overrides manual entry)"
+          >
+            <RefreshCw className={cn('h-3 w-3', fetchRate.isPending && 'animate-spin')} />
+          </Button>
+          {project.exchangeRateIsManual && (
+            <span className="text-[10px] text-text-muted" title="Manual rate in effect">
+              manual
+            </span>
+          )}
+          {fetchRate.isError && (
+            <span className="text-[10px] text-danger" title={fetchRate.error.message}>
+              fetch failed
+            </span>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -166,11 +314,13 @@ interface FlagBadgeProps {
   tone: string
   count: number
   label: string
+  compact: boolean
 }
 
-function FlagBadge({ tone, count, label }: FlagBadgeProps): React.JSX.Element {
+function FlagBadge({ tone, count, label, compact }: FlagBadgeProps): React.JSX.Element {
   return (
     <span
+      title={compact ? `${label}: ${count}` : undefined}
       className={`inline-flex items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium ${tone}`}
     >
       <Flag className="h-3 w-3" />
@@ -184,7 +334,7 @@ function FlagBadge({ tone, count, label }: FlagBadgeProps): React.JSX.Element {
           {count}
         </motion.span>
       </AnimatePresence>
-      {label}
+      {!compact && label}
     </span>
   )
 }

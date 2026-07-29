@@ -54,7 +54,11 @@ export type FontScale = 'sm' | 'md' | 'lg'
 export interface AppSettings {
   catalogDir: string
   preferredBrands: string[]
+  /** componentType -> single preferred brand; absent/unset falls back to preferredBrands. */
+  preferredBrandsByType: Record<string, string>
   enabledComponentTypes: string[]
+  /** Free-text rules appended to every AI extraction prompt, alongside the built-in rules. */
+  customExtractionRules: string[]
   aiModel: string
   confidenceThreshold: number
   maxExtractionRetries: number
@@ -88,7 +92,12 @@ export interface Project {
   id: string
   name: string
   substationLabel: string
+  /** ISO-4217 currency code, e.g. 'MYR', 'USD'. */
   currency: string
+  /** Units of `currency` per 1 MYR (the catalog's native currency). Always 1 when currency is MYR. */
+  exchangeRate: number
+  exchangeRateIsManual: boolean
+  exchangeRateUpdatedAt: string | null
   aiProgressPct: number
   createdAt: string
   updatedAt: string
@@ -98,6 +107,23 @@ export interface CreateProjectInput {
   name: string
   substationLabel?: string
 }
+
+export interface UpdateProjectCurrencySettingsInput {
+  projectId: string
+  currency: string
+  /** Present when switching currency (live-fetched) or setting a manual override; omitted/ignored for MYR. */
+  exchangeRate?: number
+  exchangeRateIsManual: boolean
+}
+
+export interface FxRateResult {
+  rate: number
+  fetchedAt: string
+  /** True when served from the once-a-day cache instead of hitting Frankfurter. */
+  fromCache: boolean
+}
+
+export type SecretKeyName = 'anthropicApiKey'
 
 export interface Sld {
   id: string
@@ -124,6 +150,8 @@ export interface QuotationLine {
   pageNumber: number
   panelName: string
   tag: string
+  sku: string
+  componentType: string
   description: string
   maker: string
   qty: number
@@ -295,6 +323,8 @@ export interface ExtractedComponent {
   tag: string
   pageNumber: number
   panelName: string
+  /** The recognized component type this belongs to (e.g. "MCCB", "Contactor") — used to resolve a per-type preferred brand at match time. */
+  componentType: string
   confidence: number
   notes: string
 }

@@ -3,6 +3,7 @@ import { Logo } from '@renderer/components/animation/Logo'
 import { Card } from '@renderer/components/common/Card'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useLogin } from '@renderer/state/queries/useAuth'
 import { ForgotPasswordFlow } from '@renderer/components/auth/ForgotPasswordFlow'
 
@@ -65,7 +66,11 @@ export function LoginScreen(): React.JSX.Element {
                 Forgot password?
               </button>
             </div>
-            {error && <p className="text-xs text-danger">{error}</p>}
+            {error && (
+              <p className="text-xs text-danger">
+                <ErrorMessage message={error} />
+              </p>
+            )}
             <Button
               type="submit"
               variant="accent"

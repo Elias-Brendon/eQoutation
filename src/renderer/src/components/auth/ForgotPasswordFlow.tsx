@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useRecoveryQuestion, useResetPassword } from '@renderer/state/queries/useAuth'
 
 interface ForgotPasswordFlowProps {
@@ -61,7 +62,11 @@ export function ForgotPasswordFlow({ onDone }: ForgotPasswordFlowProps): React.J
           autoFocus
           required
         />
-        {error && <p className="text-xs text-danger">{error}</p>}
+        {error && (
+          <p className="text-xs text-danger">
+            <ErrorMessage message={error} />
+          </p>
+        )}
         <Button
           type="submit"
           variant="accent"

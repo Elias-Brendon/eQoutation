@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import { createHash, randomBytes } from 'crypto'
 import {
   countUsers,
@@ -18,6 +17,8 @@ import {
 import { hashPassword, verifyPassword } from '../auth/passwordHash'
 import { getCurrentUserId, setCurrentUserId } from '../auth/authState'
 import { clearSessionToken, readSessionToken, writeSessionToken } from '../auth/sessionTokenStore'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type {
   AuthStatus,
@@ -63,7 +64,7 @@ function resolveSessionUser(): AuthUser | null {
 }
 
 export function registerAuthIpc(): void {
-  ipcMain.handle(IPC.authGetStatus, (): AuthStatus => {
+  safeHandle(IPC.authGetStatus, (): AuthStatus => {
     if (countUsers() === 0) return { state: 'needsSetup', user: null }
 
     const activeUserId = getCurrentUserId()
@@ -81,13 +82,13 @@ export function registerAuthIpc(): void {
     return { state: 'unauthenticated', user: null }
   })
 
-  ipcMain.handle(IPC.authSetup, (_event, input: SetupInput): AuthUser => {
-    if (countUsers() > 0) throw new Error('Setup has already been completed')
+  safeHandle(IPC.authSetup, (_event, input: SetupInput): AuthUser => {
+    if (countUsers() > 0) throw new AppError('AUTH_SETUP_ALREADY_DONE')
     const username = input.username.trim()
-    if (!username) throw new Error('Username is required')
-    if (input.password.length < 8) throw new Error('Password must be at least 8 characters')
-    if (!input.securityQuestion) throw new Error('A security question is required')
-    if (!normalizeAnswer(input.securityAnswer)) throw new Error('A security answer is required')
+    if (!username) throw new AppError('AUTH_USERNAME_REQUIRED')
+    if (input.password.length < 8) throw new AppError('AUTH_PASSWORD_TOO_SHORT')
+    if (!input.securityQuestion) throw new AppError('AUTH_SECURITY_QUESTION_REQUIRED')
+    if (!normalizeAnswer(input.securityAnswer)) throw new AppError('AUTH_SECURITY_ANSWER_REQUIRED')
 
     const user = createUser(
       username,
@@ -99,10 +100,10 @@ export function registerAuthIpc(): void {
     return user
   })
 
-  ipcMain.handle(IPC.authLogin, (_event, input: LoginInput): AuthUser => {
+  safeHandle(IPC.authLogin, (_event, input: LoginInput): AuthUser => {
     const record = getUserByUsername(input.username.trim())
     if (!record || !verifyPassword(input.password, record.passwordHash)) {
-      throw new Error('Invalid username or password')
+      throw new AppError('AUTH_INVALID_CREDENTIALS')
     }
     setCurrentUserId(record.id)
 
@@ -113,18 +114,18 @@ export function registerAuthIpc(): void {
     }
 
     const user = getUserById(record.id)
-    if (!user) throw new Error('User not found')
+    if (!user) throw new AppError('AUTH_USER_NOT_FOUND')
     return user
   })
 
-  ipcMain.handle(IPC.authLogout, (): void => {
+  safeHandle(IPC.authLogout, (): void => {
     const stored = readSessionToken()
     if (stored) revokeSessionByTokenHash(hashToken(stored.token))
     clearSessionToken()
     setCurrentUserId(null)
   })
 
-  ipcMain.handle(
+  safeHandle(
     IPC.authGetRecoveryQuestion,
     (_event, username: string): RecoveryQuestionResult => {
       const info = getRecoveryInfoByUsername(username.trim())
@@ -132,28 +133,28 @@ export function registerAuthIpc(): void {
     }
   )
 
-  ipcMain.handle(IPC.authResetPassword, (_event, input: ResetPasswordInput): AuthUser => {
+  safeHandle(IPC.authResetPassword, (_event, input: ResetPasswordInput): AuthUser => {
     const info = getRecoveryInfoByUsername(input.username.trim())
     if (!info || !verifyPassword(normalizeAnswer(input.answer), info.answerHash)) {
-      throw new Error('That answer does not match our records')
+      throw new AppError('AUTH_RECOVERY_ANSWER_MISMATCH')
     }
-    if (input.newPassword.length < 8) throw new Error('Password must be at least 8 characters')
+    if (input.newPassword.length < 8) throw new AppError('AUTH_PASSWORD_TOO_SHORT')
 
     updatePasswordHash(info.userId, hashPassword(input.newPassword))
     setCurrentUserId(info.userId)
 
     const user = getUserById(info.userId)
-    if (!user) throw new Error('User not found')
+    if (!user) throw new AppError('AUTH_USER_NOT_FOUND')
     return user
   })
 
-  ipcMain.handle(
+  safeHandle(
     IPC.authSetSecurityQuestion,
     (_event, input: SetSecurityQuestionInput): void => {
       const userId = getCurrentUserId()
-      if (!userId) throw new Error('Not logged in')
-      if (!input.securityQuestion) throw new Error('A security question is required')
-      if (!normalizeAnswer(input.securityAnswer)) throw new Error('A security answer is required')
+      if (!userId) throw new AppError('AUTH_NOT_LOGGED_IN')
+      if (!input.securityQuestion) throw new AppError('AUTH_SECURITY_QUESTION_REQUIRED')
+      if (!normalizeAnswer(input.securityAnswer)) throw new AppError('AUTH_SECURITY_ANSWER_REQUIRED')
 
       setSecurityQuestion(
         userId,
@@ -163,15 +164,15 @@ export function registerAuthIpc(): void {
     }
   )
 
-  ipcMain.handle(IPC.authChangePassword, (_event, input: ChangePasswordInput): void => {
+  safeHandle(IPC.authChangePassword, (_event, input: ChangePasswordInput): void => {
     const userId = getCurrentUserId()
-    if (!userId) throw new Error('Not logged in')
+    if (!userId) throw new AppError('AUTH_NOT_LOGGED_IN')
 
     const storedHash = getPasswordHash(userId)
     if (!storedHash || !verifyPassword(input.oldPassword, storedHash)) {
-      throw new Error('Current password is incorrect')
+      throw new AppError('AUTH_CURRENT_PASSWORD_INCORRECT')
     }
-    if (input.newPassword.length < 8) throw new Error('Password must be at least 8 characters')
+    if (input.newPassword.length < 8) throw new AppError('AUTH_PASSWORD_TOO_SHORT')
 
     updatePasswordHash(userId, hashPassword(input.newPassword))
   })

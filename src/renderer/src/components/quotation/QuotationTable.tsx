@@ -4,6 +4,7 @@ import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
 import { Tabs } from '@renderer/components/common/Tabs'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { CatalogResolveModal } from '@renderer/components/quotation/CatalogResolveModal'
 import { ConfidenceResolveDrawer } from '@renderer/components/quotation/ConfidenceResolveDrawer'
 import {
@@ -15,6 +16,8 @@ import {
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 import { useSettings } from '@renderer/state/queries/useSettings'
 import { useProjects } from '@renderer/state/queries/useProjects'
+import { currencySymbol } from '@shared/constants/currencies'
+import { convertFromBase } from '@shared/lib/currencyConversion'
 import type { Flag, QuotationLine } from '@shared/types/entities'
 
 // Stable message prefix set by quotations.ipc.ts's auto-flagging — lets the
@@ -134,7 +137,9 @@ export function QuotationTable({
   const { data: flags = [] } = useFlagsByQuotation(quotation?.id ?? null)
   const { data: settings } = useSettings()
   const { data: projects = [] } = useProjects()
-  const currency = projects.find((p) => p.id === projectId)?.currency ?? '$'
+  const project = projects.find((p) => p.id === projectId)
+  const exchangeRate = project?.exchangeRate ?? 1
+  const currency = currencySymbol(project?.currency ?? 'MYR')
   const confidenceThreshold = settings?.confidenceThreshold ?? 0.7
   const [resolveLine, setResolveLine] = useState<QuotationLine | null>(null)
   const [confidenceLine, setConfidenceLine] = useState<QuotationLine | null>(null)
@@ -228,7 +233,9 @@ export function QuotationTable({
           Generate quotation
         </Button>
         {generate.isError && (
-          <div className="max-w-md text-center text-xs text-danger">{generate.error.message}</div>
+          <div className="max-w-md text-center text-xs text-danger">
+            <ErrorMessage message={generate.error.message} />
+          </div>
         )}
       </div>
     )
@@ -246,7 +253,7 @@ export function QuotationTable({
             Total:{' '}
             <span className="font-mono text-text-primary">
               {currency}
-              {grandTotal.toFixed(2)}
+              {convertFromBase(grandTotal, exchangeRate).toFixed(2)}
             </span>
           </span>
         </div>
@@ -266,8 +273,13 @@ export function QuotationTable({
       </div>
 
       {panelNames.length > 1 && (
-        <div className="flex shrink-0 items-center justify-between gap-3">
-          <Tabs items={panelTabs} value={activeTab} onChange={setActiveTab} />
+        <div className="flex min-w-0 shrink-0 items-center justify-between gap-3">
+          <Tabs
+            items={panelTabs}
+            value={activeTab}
+            onChange={setActiveTab}
+            className="min-w-0 flex-1"
+          />
           {activeTab !== FULL_BOM_TAB && (
             <PanelMarginField
               quotationId={quotation.id}
@@ -291,6 +303,7 @@ export function QuotationTable({
             <thead>
               <tr className="border-b border-border text-left text-xs text-text-muted">
                 <th className="px-3 py-2 font-medium">Page</th>
+                <th className="px-3 py-2 font-medium">SKU</th>
                 <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Maker</th>
                 <th className="px-3 py-2 font-medium">Qty</th>
@@ -312,6 +325,9 @@ export function QuotationTable({
                   )}
                 >
                   <td className="px-3 py-2 text-text-secondary">{line.pageNumber}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-text-secondary">
+                    {line.sku || '—'}
+                  </td>
                   <td className="px-3 py-2 text-text-primary">
                     {line.description}
                     {line.matchStatus === 'unknown' && (
@@ -335,14 +351,14 @@ export function QuotationTable({
                   </td>
                   <td className="px-3 py-2 text-text-secondary">
                     {currency}
-                    {line.unitCost.toFixed(2)}
+                    {convertFromBase(line.unitCost, exchangeRate).toFixed(2)}
                   </td>
                   <td className="px-3 py-2">
                     <MarginCell line={line} sldId={sldId} />
                   </td>
                   <td className="px-3 py-2 text-text-primary">
                     {currency}
-                    {line.quotePrice.toFixed(2)}
+                    {convertFromBase(line.quotePrice, exchangeRate).toFixed(2)}
                   </td>
                 </tr>
               ))}

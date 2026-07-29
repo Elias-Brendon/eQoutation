@@ -3,6 +3,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import ExcelJS from 'exceljs'
 import type { Project, Quotation, QuotationLine, Sld } from '@shared/types/entities'
+import { convertFromBase } from '@shared/lib/currencyConversion'
 
 // Column layout mirrors catalog/sample.xlsm's per-board sheets (TYPE,
 // DESCRIPTION, MAKER, UNIT, LIST $, DISCOUNT, COST, TOTAL, MARGIN, QUOTE),
@@ -14,11 +15,12 @@ function buildHeaders(currency: string): string[] {
   return [
     'PAGE',
     'TYPE',
+    'SKU',
     'DESCRIPTION',
     'MAKER',
     'QTY',
     'UOM',
-    `LIST ${currency}`,
+    `LIST (${currency})`,
     'DISCOUNT',
     'COST',
     'TOTAL',
@@ -27,7 +29,7 @@ function buildHeaders(currency: string): string[] {
     'MATCH'
   ]
 }
-const FULL_WIDTHS = [6, 16, 40, 12, 6, 8, 12, 10, 12, 12, 8, 12, 12]
+const FULL_WIDTHS = [6, 16, 14, 40, 12, 6, 8, 12, 10, 12, 12, 8, 12, 12]
 
 function quotationDir(projectId: string): string {
   return join(app.getPath('userData'), 'projects', projectId, 'quotations')
@@ -51,6 +53,16 @@ function sanitizeSheetName(name: string, usedNames: Set<string>): string {
   return candidate
 }
 
+// Formats a panel's distinct SLD page numbers as a human-readable label,
+// e.g. "Page 1 of the PDF", "Pages 1–3 of the PDF", "Pages 1, 4 of the PDF".
+function formatPdfPageLabel(pageNumbers: number[]): string {
+  const sorted = [...new Set(pageNumbers)].sort((a, b) => a - b)
+  if (sorted.length === 1) return `Page ${sorted[0]} of the PDF`
+  const isContiguous = sorted.every((page, i) => i === 0 || page === sorted[i - 1] + 1)
+  if (isContiguous) return `Pages ${sorted[0]}–${sorted[sorted.length - 1]} of the PDF`
+  return `Pages ${sorted.join(', ')} of the PDF`
+}
+
 // Writes one BOM sheet (project/SLD/quotation/panel header block, column
 // headers, one row per line, a totals row) — shared by the full-BOM sheet
 // and each per-panel sheet, differing only in which lines are passed in,
@@ -64,6 +76,7 @@ function writeBomSheet(
   includePageColumn: boolean,
   panelTitle?: string
 ): void {
+  const rate = project.exchangeRate
   const fullHeaders = buildHeaders(project.currency)
   const headers = includePageColumn ? fullHeaders : fullHeaders.slice(1)
   const widths = includePageColumn ? FULL_WIDTHS : FULL_WIDTHS.slice(1)
@@ -84,9 +97,11 @@ function writeBomSheet(
     sheet.getCell('A6').value = 'Panel:'
     sheet.getCell('B6').value = panelTitle
     sheet.getCell('B6').font = { bold: true }
+    sheet.getCell('A7').value = 'SLD Page:'
+    sheet.getCell('B7').value = formatPdfPageLabel(lines.map((line) => line.pageNumber))
   }
 
-  const headerRowNumber = 7
+  const headerRowNumber = panelTitle ? 8 : 7
   const headerRow = sheet.getRow(headerRowNumber)
   headerRow.values = headers
   headerRow.font = { bold: true }
@@ -100,16 +115,17 @@ function writeBomSheet(
     const fullValues = [
       line.pageNumber,
       line.tag,
+      line.sku,
       line.description,
       line.maker,
       line.qty,
       line.uom,
-      Number(line.listPrice.toFixed(2)),
+      convertFromBase(line.listPrice, rate),
       line.discountFactor,
-      Number(line.unitCost.toFixed(2)),
-      Number(line.totalCost.toFixed(2)),
+      convertFromBase(line.unitCost, rate),
+      convertFromBase(line.totalCost, rate),
       line.margin,
-      Number(line.quotePrice.toFixed(2)),
+      convertFromBase(line.quotePrice, rate),
       line.matchStatus === 'matched' ? 'Matched' : 'UNMATCHED'
     ]
     row.values = includePageColumn ? fullValues : fullValues.slice(1)

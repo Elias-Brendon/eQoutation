@@ -47,7 +47,7 @@ function Rail({ side, label, onExpand }: RailProps): React.JSX.Element {
   return (
     <button
       onClick={onExpand}
-      title={`Back to split view (${label})`}
+      title={`Back to split view (${label}) — Ctrl+1`}
       className="flex w-10 shrink-0 flex-col items-center gap-2 rounded-lg border border-border bg-surface py-3 transition-colors hover:bg-surface-hover"
     >
       <Icon className="h-3.5 w-3.5 text-text-secondary" />
@@ -129,7 +129,7 @@ export function CenterPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPanelModeChange('pdf-full')}
-                  title="Expand PDF diagram"
+                  title="Expand PDF diagram — Ctrl+2"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Button>
@@ -151,7 +151,7 @@ export function CenterPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPanelModeChange('quotation-full')}
-                  title="Expand quotation"
+                  title="Expand quotation — Ctrl+3"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Button>

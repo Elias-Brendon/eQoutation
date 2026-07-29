@@ -1,5 +1,5 @@
-appId: com.elias.eqoutation
-productName: eQoutation
+appId: com.elias.equotation
+productName: eQuotation
 directories:
   buildResources: build
 files:
@@ -16,7 +16,7 @@ asarUnpack:
   - node_modules/bindings/**/*
   - node_modules/file-uri-to-path/**/*
 win:
-  executableName: eQoutation
+  executableName: eQuotation
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

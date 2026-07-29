@@ -28,6 +28,9 @@ export function Drawer({
           onClick={onClose}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
             className={cn(
               'absolute right-0 top-0 flex h-full w-[420px] max-w-[90vw] flex-col gap-4 overflow-y-auto border-l border-border bg-surface-raised p-5 shadow-2xl',
               className

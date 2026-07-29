@@ -1,18 +1,19 @@
-import { ipcMain } from 'electron'
 import { getFlagById, resolveFlag } from '../db/repositories/flagsRepo'
 import { getQuotationLineById, updateQuotationLine } from '../db/repositories/quotationsRepo'
 import { createFeedbackLog, listFeedbackByLine } from '../db/repositories/feedbackLogRepo'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type { FeedbackLogEntry, FeedbackResolveLineInput, QuotationLine } from '@shared/types/entities'
 
 const FEEDBACK_FIELDS = ['description', 'qty', 'uom', 'tag'] as const
 
 export function registerFeedbackIpc(): void {
-  ipcMain.handle(
+  safeHandle(
     IPC.feedbackResolveLine,
     (_event, input: FeedbackResolveLineInput): QuotationLine => {
       const line = getQuotationLineById(input.lineId)
-      if (!line) throw new Error(`Quotation line not found: ${input.lineId}`)
+      if (!line) throw new AppError('DB_QUOTATION_LINE_NOT_FOUND')
 
       if (input.action === 'corrected') {
         const before = line
@@ -52,7 +53,7 @@ export function registerFeedbackIpc(): void {
       }
 
       if (input.flagId && input.action !== 'flagged_for_later') {
-        if (!getFlagById(input.flagId)) throw new Error(`Flag not found: ${input.flagId}`)
+        if (!getFlagById(input.flagId)) throw new AppError('DB_FLAG_NOT_FOUND')
         resolveFlag(input.flagId, input.note)
       }
 
@@ -60,7 +61,7 @@ export function registerFeedbackIpc(): void {
     }
   )
 
-  ipcMain.handle(IPC.feedbackListByLine, (_event, lineId: string): FeedbackLogEntry[] =>
+  safeHandle(IPC.feedbackListByLine, (_event, lineId: string): FeedbackLogEntry[] =>
     listFeedbackByLine(lineId)
   )
 }

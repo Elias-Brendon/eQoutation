@@ -21,6 +21,7 @@ import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { AnnotationCanvas } from '@renderer/components/pdf/AnnotationCanvas'
 import { TextEntryOverlay } from '@renderer/components/pdf/TextEntryOverlay'
 import { useSldFile } from '@renderer/state/queries/useSldFile'
@@ -73,7 +74,7 @@ function devicePixelRatioCapped(): number {
 }
 
 export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React.JSX.Element {
-  const { data: fileBytes, isLoading, isError } = useSldFile(sldId)
+  const { data: fileBytes, isLoading, isError, error: fileError } = useSldFile(sldId)
   // Spans the toolbar + containerRef together — its own height comes from
   // ITS parent (fixed by flexbox), not from its children, so the resize
   // observer below can watch it to catch real window/pane resizes without
@@ -631,6 +632,11 @@ export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-danger/40 bg-surface text-danger">
         <div className="text-sm">Could not render {filename}</div>
+        {isError && (
+          <div className="text-xs text-text-muted">
+            <ErrorMessage message={fileError.message} />
+          </div>
+        )}
         {renderError && <div className="text-xs text-text-muted">{renderError}</div>}
       </div>
     )

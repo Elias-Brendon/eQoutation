@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import { getSldById } from '../db/repositories/sldsRepo'
 import {
   completeExtraction,
@@ -12,6 +11,8 @@ import { ClaudeProvider } from '../ai/ClaudeProvider'
 import type { AIProvider, ExtractionResult } from '../ai/AIProvider'
 import { getSettings } from '../settings/settingsStore'
 import { getAnthropicApiKey } from '../settings/secretsStore'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type { Extraction } from '@shared/types/entities'
 
@@ -21,9 +22,7 @@ let providerCacheKey: string | null = null
 function getProvider(): AIProvider {
   const apiKey = getAnthropicApiKey()
   if (!apiKey) {
-    throw new Error(
-      'No Anthropic API key configured. Add one in Settings > API Keys (or set ANTHROPIC_API_KEY in .env for local dev).'
-    )
+    throw new AppError('AI_NO_API_KEY')
   }
   const { aiModel } = getSettings()
   const cacheKey = `${apiKey}:${aiModel}`
@@ -35,26 +34,31 @@ function getProvider(): AIProvider {
 }
 
 export function registerAiIpc(): void {
-  ipcMain.handle(IPC.aiExtractSld, async (event, sldId: string): Promise<Extraction> => {
+  safeHandle(IPC.aiExtractSld, async (event, sldId: string): Promise<Extraction> => {
     const sld = getSldById(sldId)
-    if (!sld) throw new Error(`SLD not found: ${sldId}`)
+    if (!sld) throw new AppError('DB_SLD_NOT_FOUND')
 
     const extraction = createRunningExtraction(sldId)
 
     try {
       const pdfBytes = readSldFile(sld.filePath)
-      const { enabledComponentTypes, maxExtractionRetries } = getSettings()
-      const catalogDescriptions = listDistinctDescriptions()
+      const { enabledComponentTypes, maxExtractionRetries, preferredBrands, customExtractionRules } =
+        getSettings()
+      const catalogDescriptions = listDistinctDescriptions(preferredBrands)
+
+      const provider = getProvider()
 
       let result: ExtractionResult | undefined
       let lastError: Error | undefined
       for (let attempt = 0; attempt <= maxExtractionRetries; attempt++) {
         try {
-          result = await getProvider().extractComponents({
+          result = await provider.extractComponents({
             pdfBytes,
             filename: sld.filename,
             enabledComponentTypes,
             catalogDescriptions,
+            preferredBrands,
+            customRules: customExtractionRules,
             onProgress: (progress) => {
               event.sender.send(IPC.aiExtractionProgress, { sldId, ...progress })
             }
@@ -71,7 +75,7 @@ export function registerAiIpc(): void {
           }
         }
       }
-      if (!result) throw lastError ?? new Error('Extraction failed')
+      if (!result) throw lastError ?? new AppError('AI_REQUEST_FAILED')
 
       completeExtraction(extraction.id, result.model, {
         components: result.components,
@@ -87,12 +91,20 @@ export function registerAiIpc(): void {
         completedAt: new Date().toISOString()
       }
     } catch (err) {
-      const message = (err as Error).message
-      failExtraction(extraction.id, message)
+      // extraction.error is rendered directly to the user in ExtractionPanel,
+      // so it must already be sanitized here — don't rely on safeHandle's
+      // outer catch for that, it only sanitizes the IPC rejection. Log the
+      // original error ourselves since converting it here means safeHandle
+      // never sees the real cause.
+      if (!(err instanceof AppError)) {
+        console.error(`[ipc:${IPC.aiExtractSld}]`, err)
+      }
+      const appError = err instanceof AppError ? err : new AppError('AI_REQUEST_FAILED')
+      failExtraction(extraction.id, appError.message)
       event.sender.send(IPC.aiExtractionProgress, { sldId, pct: 0, stage: 'Failed' })
-      throw err
+      throw appError
     }
   })
 
-  ipcMain.handle(IPC.aiGetExtraction, (_event, sldId: string) => getLatestExtractionForSld(sldId))
+  safeHandle(IPC.aiGetExtraction, (_event, sldId: string) => getLatestExtractionForSld(sldId))
 }

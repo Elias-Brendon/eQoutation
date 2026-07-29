@@ -1,9 +1,16 @@
 import { app, safeStorage } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { AppError } from '../errors/AppError'
+import type { SecretKeyName } from '@shared/types/entities'
 
-interface SecretsFile {
-  anthropicApiKey?: string
+type SecretsFile = Partial<Record<SecretKeyName, string>>
+
+// Dev-only fallback: .env is fine locally, but a packaged build should never
+// silently read a plaintext env var for a secret once the in-app key store
+// is available (see original build plan Risk #5).
+const DEV_ENV_FALLBACK: Record<SecretKeyName, string> = {
+  anthropicApiKey: 'ANTHROPIC_API_KEY'
 }
 
 function secretsFilePath(): string {
@@ -26,16 +33,22 @@ function writeSecretsFile(data: SecretsFile): void {
   writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
 }
 
-export function setAnthropicApiKey(key: string): void {
+export function setSecret(name: SecretKeyName, value: string): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('OS-level secret encryption is not available on this machine')
+    throw new AppError('SEC_ENCRYPTION_UNAVAILABLE')
   }
-  const encrypted = safeStorage.encryptString(key)
-  writeSecretsFile({ ...readSecretsFile(), anthropicApiKey: encrypted.toString('base64') })
+  const encrypted = safeStorage.encryptString(value)
+  writeSecretsFile({ ...readSecretsFile(), [name]: encrypted.toString('base64') })
 }
 
-function getStoredAnthropicApiKey(): string | null {
-  const stored = readSecretsFile().anthropicApiKey
+export function deleteSecret(name: SecretKeyName): void {
+  const data = readSecretsFile()
+  delete data[name]
+  writeSecretsFile(data)
+}
+
+function getStoredSecret(name: SecretKeyName): string | null {
+  const stored = readSecretsFile()[name]
   if (!stored || !safeStorage.isEncryptionAvailable()) return null
   try {
     return safeStorage.decryptString(Buffer.from(stored, 'base64'))
@@ -44,20 +57,20 @@ function getStoredAnthropicApiKey(): string | null {
   }
 }
 
-// Dev-only fallback: .env is fine locally, but a packaged build should never
-// silently read a plaintext env var for a secret once the in-app key store
-// is available (see original build plan Risk #5).
-export function getAnthropicApiKey(): string | null {
-  const stored = getStoredAnthropicApiKey()
+export function getSecret(name: SecretKeyName): string | null {
+  const stored = getStoredSecret(name)
   if (stored) return stored
-  if (!app.isPackaged && process.env.ANTHROPIC_API_KEY) {
-    return process.env.ANTHROPIC_API_KEY
-  }
+  const envVar = DEV_ENV_FALLBACK[name]
+  if (!app.isPackaged && process.env[envVar]) return process.env[envVar] as string
   return null
 }
 
-export function getMaskedAnthropicApiKey(): string | null {
-  const key = getAnthropicApiKey()
+export function getMaskedSecret(name: SecretKeyName): string | null {
+  const key = getSecret(name)
   if (!key) return null
   return `••••••••${key.slice(-4)}`
 }
+
+export const getAnthropicApiKey = (): string | null => getSecret('anthropicApiKey')
+export const setAnthropicApiKey = (key: string): void => setSecret('anthropicApiKey', key)
+export const getMaskedAnthropicApiKey = (): string | null => getMaskedSecret('anthropicApiKey')

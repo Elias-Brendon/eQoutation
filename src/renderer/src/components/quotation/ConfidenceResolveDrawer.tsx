@@ -4,6 +4,7 @@ import { Drawer } from '@renderer/components/common/Drawer'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useSettings } from '@renderer/state/queries/useSettings'
 import { useResolveFeedback } from '@renderer/state/queries/useFeedback'
 import type { QuotationLine } from '@shared/types/entities'
@@ -112,7 +113,9 @@ export function ConfidenceResolveDrawer({
         </Field>
 
         {resolveFeedback.isError && (
-          <div className="text-xs text-danger">{resolveFeedback.error.message}</div>
+          <div className="text-xs text-danger">
+            <ErrorMessage message={resolveFeedback.error.message} />
+          </div>
         )}
 
         <div className="mt-2 flex flex-col gap-2">

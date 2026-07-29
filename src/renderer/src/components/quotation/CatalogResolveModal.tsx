@@ -3,12 +3,15 @@ import { Search } from 'lucide-react'
 import { Modal } from '@renderer/components/common/Modal'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useCatalogSearch } from '@renderer/state/queries/useCatalog'
 import {
   useAddCatalogItemAndLink,
   useLinkLineToCatalogItem
 } from '@renderer/state/queries/useFlags'
 import { useProjects } from '@renderer/state/queries/useProjects'
+import { currencySymbol } from '@shared/constants/currencies'
+import { convertFromBase, convertToBase } from '@shared/lib/currencyConversion'
 import type { CatalogItem, NewCatalogItemInput, QuotationLine } from '@shared/types/entities'
 
 interface CatalogResolveModalProps {
@@ -63,7 +66,9 @@ export function CatalogResolveModal({
   const linkItem = useLinkLineToCatalogItem()
   const addAndLink = useAddCatalogItemAndLink()
   const { data: projects = [] } = useProjects()
-  const currency = projects.find((p) => p.id === projectId)?.currency ?? '$'
+  const project = projects.find((p) => p.id === projectId)
+  const exchangeRate = project?.exchangeRate ?? 1
+  const currency = currencySymbol(project?.currency ?? 'MYR')
 
   const ctx = { flagId, quotationId, sldId, projectId }
 
@@ -73,7 +78,12 @@ export function CatalogResolveModal({
 
   const handleAddSubmit = (): void => {
     if (!form.sku.trim() || !form.description.trim()) return
-    addAndLink.mutate({ ...ctx, lineId: line.id, input: form }, { onSuccess: onClose })
+    const input: NewCatalogItemInput = {
+      ...form,
+      listPrice: convertToBase(form.listPrice ?? 0, exchangeRate),
+      unitPrice: convertToBase(form.unitPrice ?? 0, exchangeRate)
+    }
+    addAndLink.mutate({ ...ctx, lineId: line.id, input }, { onSuccess: onClose })
   }
 
   return (
@@ -119,7 +129,7 @@ export function CatalogResolveModal({
                     <td className="px-2 py-1 text-text-secondary">{item.maker}</td>
                     <td className="px-2 py-1 text-right text-text-primary">
                       {currency}
-                      {item.unitPrice.toFixed(2)}
+                      {convertFromBase(item.unitPrice, exchangeRate).toFixed(2)}
                     </td>
                     <td className="px-2 py-1 text-right">
                       <Button
@@ -143,7 +153,11 @@ export function CatalogResolveModal({
               </tbody>
             </table>
           </div>
-          {linkItem.isError && <div className="text-xs text-danger">{linkItem.error.message}</div>}
+          {linkItem.isError && (
+            <div className="text-xs text-danger">
+              <ErrorMessage message={linkItem.error.message} />
+            </div>
+          )}
           <div className="flex justify-between">
             <Button variant="ghost" size="sm" onClick={onClose}>
               Cancel
@@ -200,7 +214,7 @@ export function CatalogResolveModal({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="List price">
+            <Field label={`List price (${currency})`}>
               <Input
                 type="number"
                 step="0.01"
@@ -208,7 +222,7 @@ export function CatalogResolveModal({
                 onChange={(e) => setForm({ ...form, listPrice: Number(e.target.value) })}
               />
             </Field>
-            <Field label="Unit price (cost) *">
+            <Field label={`Unit price (cost) * (${currency})`}>
               <Input
                 type="number"
                 step="0.01"
@@ -218,7 +232,9 @@ export function CatalogResolveModal({
             </Field>
           </div>
           {addAndLink.isError && (
-            <div className="text-xs text-danger">{addAndLink.error.message}</div>
+            <div className="text-xs text-danger">
+              <ErrorMessage message={addAndLink.error.message} />
+            </div>
           )}
           <div className="mt-2 flex justify-between">
             <Button variant="ghost" size="sm" onClick={() => setStep('search')}>

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog } from 'electron'
 import {
   getSldById,
   insertSld,
@@ -6,13 +6,15 @@ import {
   softDeleteSld
 } from '../db/repositories/sldsRepo'
 import { copyPdfIntoStorage, readSldFile } from '../storage/sldStorage'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type { Sld, UploadSldInput } from '@shared/types/entities'
 
 export function registerSldsIpc(): void {
-  ipcMain.handle(IPC.sldsListByProject, (_event, projectId: string) => listSldsByProject(projectId))
+  safeHandle(IPC.sldsListByProject, (_event, projectId: string) => listSldsByProject(projectId))
 
-  ipcMain.handle(IPC.sldsUpload, async (_event, input: UploadSldInput): Promise<Sld | null> => {
+  safeHandle(IPC.sldsUpload, async (_event, input: UploadSldInput): Promise<Sld | null> => {
     const focusedWindow = BrowserWindow.getFocusedWindow() ?? undefined
     const result = await dialog.showOpenDialog(focusedWindow as BrowserWindow, {
       title: 'Select a Single Line Diagram PDF',
@@ -33,11 +35,11 @@ export function registerSldsIpc(): void {
     })
   })
 
-  ipcMain.handle(IPC.sldsDelete, (_event, sldId: string) => softDeleteSld(sldId))
+  safeHandle(IPC.sldsDelete, (_event, sldId: string) => softDeleteSld(sldId))
 
-  ipcMain.handle(IPC.sldsReadFile, (_event, sldId: string) => {
+  safeHandle(IPC.sldsReadFile, (_event, sldId: string) => {
     const sld = getSldById(sldId)
-    if (!sld) throw new Error(`SLD not found: ${sldId}`)
+    if (!sld) throw new AppError('DB_SLD_NOT_FOUND')
     return readSldFile(sld.filePath)
   })
 }

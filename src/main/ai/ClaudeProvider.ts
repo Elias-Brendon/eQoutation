@@ -1,7 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { AIProvider, ExtractParams, ExtractionResult } from './AIProvider'
-import { extractionJsonSchema, normalizeExtractionPayload } from './extractionSchema'
+import { buildExtractionJsonSchema, normalizeExtractionPayload } from './extractionSchema'
 import { buildExtractionSystemPrompt } from './promptTemplates'
+import { AppError } from '../errors/AppError'
+import { formatErrorCode } from '@shared/errors/errorCodes'
 import type { TestApiKeyResult } from '@shared/types/entities'
 
 // Dense multi-page SLDs (many components + notes + flags) can need well more
@@ -31,6 +33,8 @@ export class ClaudeProvider implements AIProvider {
     filename,
     enabledComponentTypes,
     catalogDescriptions,
+    preferredBrands,
+    customRules,
     onProgress
   }: ExtractParams): Promise<ExtractionResult> {
     onProgress?.({ pct: 5, stage: 'Reading PDF' })
@@ -53,7 +57,12 @@ export class ClaudeProvider implements AIProvider {
         // unbounded, consumes the entire token budget before any structured
         // output is emitted. This task needs the budget spent on output.
         thinking: { type: 'disabled' },
-        system: buildExtractionSystemPrompt(enabledComponentTypes, catalogDescriptions),
+        system: buildExtractionSystemPrompt(
+          enabledComponentTypes,
+          catalogDescriptions,
+          preferredBrands,
+          customRules
+        ),
         messages: [
           {
             role: 'user',
@@ -70,9 +79,16 @@ export class ClaudeProvider implements AIProvider {
             ]
           }
         ],
-        output_config: { format: { type: 'json_schema', schema: extractionJsonSchema } }
+        output_config: {
+          format: { type: 'json_schema', schema: buildExtractionJsonSchema(enabledComponentTypes) }
+        }
       })
       message = await stream.finalMessage()
+    } catch (error) {
+      if (error instanceof Anthropic.RateLimitError) throw new AppError('AI_RATE_LIMITED')
+      if (error instanceof Anthropic.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
+      if (error instanceof Anthropic.APIConnectionError) throw new AppError('AI_UNREACHABLE')
+      throw new AppError('AI_REQUEST_FAILED')
     } finally {
       clearInterval(ticker)
     }
@@ -80,21 +96,22 @@ export class ClaudeProvider implements AIProvider {
     onProgress?.({ pct: 92, stage: 'Parsing response' })
 
     if (message.stop_reason === 'max_tokens') {
-      throw new Error(
-        `Claude's response was truncated at the ${MAX_TOKENS}-token output limit before finishing ` +
-          'the JSON. This SLD likely has more components/detail than the budget allows — try again ' +
-          'or split the diagram into fewer pages per extraction.'
-      )
+      throw new AppError('AI_EXTRACTION_TRUNCATED')
     }
 
     const textBlock = message.content.find(
       (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
     )
     if (!textBlock) {
-      throw new Error('Claude response had no text content to parse')
+      throw new AppError('AI_RESPONSE_UNREADABLE')
     }
 
-    const parsed = JSON.parse(textBlock.text)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(textBlock.text)
+    } catch {
+      throw new AppError('AI_RESPONSE_UNREADABLE')
+    }
     const { components, flags } = normalizeExtractionPayload(parsed)
 
     onProgress?.({ pct: 100, stage: 'Done' })
@@ -110,7 +127,17 @@ export async function testAnthropicApiKey(apiKey: string): Promise<TestApiKeyRes
     // the key authenticates, without spending any output tokens.
     await client.models.list({ limit: 1 })
     return { ok: true }
-  } catch (err) {
-    return { ok: false, error: (err as Error).message }
+  } catch (error) {
+    if (error instanceof Anthropic.RateLimitError) {
+      return { ok: false, error: formatErrorCode('AI_RATE_LIMITED') }
+    }
+    if (error instanceof Anthropic.AuthenticationError) {
+      return { ok: false, error: formatErrorCode('AI_INVALID_API_KEY') }
+    }
+    if (error instanceof Anthropic.APIConnectionError) {
+      return { ok: false, error: formatErrorCode('AI_UNREACHABLE') }
+    }
+    console.error('[ai:testAnthropicApiKey]', error)
+    return { ok: false, error: formatErrorCode('AI_KEY_TEST_FAILED') }
   }
 }

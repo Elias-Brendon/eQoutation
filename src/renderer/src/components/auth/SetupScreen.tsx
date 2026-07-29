@@ -3,6 +3,7 @@ import { Logo } from '@renderer/components/animation/Logo'
 import { Card } from '@renderer/components/common/Card'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useSetup } from '@renderer/state/queries/useAuth'
 import { SECURITY_QUESTIONS } from '@shared/types/entities'
 
@@ -88,7 +89,11 @@ export function SetupScreen(): React.JSX.Element {
             />
           </div>
 
-          {error && <p className="text-xs text-danger">{error}</p>}
+          {error && (
+            <p className="text-xs text-danger">
+              <ErrorMessage message={error} />
+            </p>
+          )}
           <Button
             type="submit"
             variant="accent"

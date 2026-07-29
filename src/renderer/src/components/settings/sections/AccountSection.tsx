@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { LogOut } from 'lucide-react'
 import { Button } from '@renderer/components/common/Button'
 import { Input } from '@renderer/components/common/Input'
+import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useChangePassword, useSetSecurityQuestion } from '@renderer/state/queries/useAuth'
 import { SECURITY_QUESTIONS, type AuthUser } from '@shared/types/entities'
 
@@ -105,7 +106,11 @@ export function AccountSection({ user, onLogout }: AccountSectionProps): React.J
             className="max-w-80"
             required
           />
-          {error && <p className="text-xs text-danger">{error}</p>}
+          {error && (
+            <p className="text-xs text-danger">
+              <ErrorMessage message={error} />
+            </p>
+          )}
           <Button
             type="submit"
             variant="outline"
@@ -146,7 +151,11 @@ export function AccountSection({ user, onLogout }: AccountSectionProps): React.J
             className="max-w-80"
             required
           />
-          {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
+          {passwordError && (
+            <p className="text-xs text-danger">
+              <ErrorMessage message={passwordError} />
+            </p>
+          )}
           {passwordChangedJustNow && (
             <p className="text-xs text-success">Password changed.</p>
           )}

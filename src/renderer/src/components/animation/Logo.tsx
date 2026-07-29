@@ -11,7 +11,7 @@ export function Logo({ className }: LogoProps): React.JSX.Element {
       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-xs font-bold text-white">
         eQ
       </span>
-      <span className="text-sm font-semibold tracking-tight text-text-primary">eQoutation</span>
+      <span className="text-sm font-semibold tracking-tight text-text-primary">eQuotation</span>
     </div>
   )
 }

@@ -18,9 +18,22 @@ function normalize(text: string): string {
     .trim()
 }
 
+// Defensive safety net for vocabulary drift between an extraction's wording
+// and the catalog's — applied to both sides of the match so it works even
+// when the AI doesn't follow the prompt's own normalization rule (e.g. an
+// older cached extraction, or a site abbreviation not yet covered there).
+const SYNONYMS: Record<string, string> = {
+  rcd: 'rccb',
+  dp: '2p',
+  sp: '1p',
+  tp: '3p',
+  fp: '4p'
+}
+
 function tokenize(text: string): Set<string> {
   const normalized = normalize(text)
-  return new Set(normalized.length ? normalized.split(' ') : [])
+  if (!normalized.length) return new Set()
+  return new Set(normalized.split(' ').map((token) => SYNONYMS[token] ?? token))
 }
 
 function jaccard(a: Set<string>, b: Set<string>): number {

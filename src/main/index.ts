@@ -4,6 +4,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllIpc } from './ipc'
+import { refreshStaleProjectExchangeRates } from './fx/refreshProjectExchangeRates'
 
 // Dev-only key loading; production should use the OS keychain instead (see plan risk #5).
 loadEnv()
@@ -18,7 +19,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0a0b0d',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -48,7 +49,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.elias.eqoutation')
+  electronApp.setAppUserModelId('com.elias.equotation')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -60,6 +61,11 @@ app.whenReady().then(() => {
   registerAllIpc()
 
   createWindow()
+
+  // Best-effort daily refresh of non-manual project exchange rates — never
+  // blocks startup, and fetchLiveRate's own cache keeps this to at most one
+  // Frankfurter call per currency per day regardless of launch frequency.
+  refreshStaleProjectExchangeRates().catch(() => {})
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

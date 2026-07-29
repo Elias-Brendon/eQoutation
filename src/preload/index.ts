@@ -18,6 +18,7 @@ import type {
   FeedbackResolveLineInput,
   Flag,
   FlagOriginCounts,
+  FxRateResult,
   LoginInput,
   NewCatalogItemInput,
   PickCatalogDirResult,
@@ -29,10 +30,12 @@ import type {
   RecoveryQuestionResult,
   ResetPasswordInput,
   ResolveUnmatchedLineResult,
+  SecretKeyName,
   SetSecurityQuestionInput,
   SetupInput,
   Sld,
   TestApiKeyResult,
+  UpdateProjectCurrencySettingsInput,
   UploadSldInput
 } from '../shared/types/entities'
 
@@ -59,18 +62,25 @@ const api = {
       ipcRenderer.invoke(IPC.settingsPickCatalogDir)
   },
   secrets: {
-    setApiKey: (key: string): Promise<void> => ipcRenderer.invoke(IPC.secretsSetApiKey, key),
-    getApiKeyMasked: (): Promise<string | null> =>
-      ipcRenderer.invoke(IPC.secretsGetApiKeyMasked),
-    testApiKey: (key: string): Promise<TestApiKeyResult> =>
-      ipcRenderer.invoke(IPC.secretsTestApiKey, key)
+    setApiKey: (keyName: SecretKeyName, key: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.secretsSetApiKey, keyName, key),
+    getApiKeyMasked: (keyName: SecretKeyName): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.secretsGetApiKeyMasked, keyName),
+    testApiKey: (keyName: SecretKeyName, key: string): Promise<TestApiKeyResult> =>
+      ipcRenderer.invoke(IPC.secretsTestApiKey, keyName, key),
+    deleteApiKey: (keyName: SecretKeyName): Promise<void> =>
+      ipcRenderer.invoke(IPC.secretsDeleteApiKey, keyName)
   },
   projects: {
     list: (): Promise<Project[]> => ipcRenderer.invoke(IPC.projectsList),
     create: (input: CreateProjectInput): Promise<Project> =>
       ipcRenderer.invoke(IPC.projectsCreate, input),
-    updateCurrency: (projectId: string, currency: string): Promise<Project> =>
-      ipcRenderer.invoke(IPC.projectsUpdateCurrency, projectId, currency)
+    updateCurrencySettings: (input: UpdateProjectCurrencySettingsInput): Promise<Project> =>
+      ipcRenderer.invoke(IPC.projectsUpdateCurrencySettings, input)
+  },
+  fx: {
+    getRate: (targetCurrency: string, forceRefresh = false): Promise<FxRateResult> =>
+      ipcRenderer.invoke(IPC.fxGetRate, targetCurrency, forceRefresh)
   },
   slds: {
     listByProject: (projectId: string): Promise<Sld[]> =>

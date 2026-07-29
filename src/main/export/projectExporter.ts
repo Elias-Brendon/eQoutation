@@ -9,6 +9,7 @@ import { listAnnotationsBySld } from '../db/repositories/annotationsRepo'
 import { readSldFile } from '../storage/sldStorage'
 import { writeQuotationWorkbook } from '../quotation/quotationExcelBuilder'
 import { flattenAnnotations } from './annotationFlattener'
+import { AppError } from '../errors/AppError'
 
 interface ManifestSldEntry {
   filename: string
@@ -26,7 +27,7 @@ function sanitizeFilename(name: string): string {
 // file path, or null if the user canceled the save dialog.
 export async function exportProject(projectId: string): Promise<string | null> {
   const project = getProjectById(projectId)
-  if (!project) throw new Error(`Project not found: ${projectId}`)
+  if (!project) throw new AppError('DB_PROJECT_NOT_FOUND')
 
   const slds = listSldsByProject(projectId)
   const dateStamp = new Date().toISOString().slice(0, 10)

@@ -2,7 +2,9 @@ import { BREAKER_TYPES, OTHER_COMPONENT_TYPES } from '@shared/constants/componen
 
 export function buildExtractionSystemPrompt(
   enabledComponentTypes: string[],
-  catalogDescriptions: string[]
+  catalogDescriptions: string[],
+  preferredBrands: string[] = [],
+  customRules: string[] = []
 ): string {
   const enabledBreakers = BREAKER_TYPES.filter((type) => enabledComponentTypes.includes(type))
   const enabledOthers = OTHER_COMPONENT_TYPES.filter((type) =>
@@ -18,9 +20,17 @@ export function buildExtractionSystemPrompt(
     ? `Also watch for these custom types: ${customTypes.join(', ')} — using the same concise, standardized-description convention as the other non-breaker rules below.`
     : ''
 
-  const catalogGlossary = catalogDescriptions.length
-    ? `\n## Known catalog descriptions (reference glossary)\n\nThese are descriptions already in our parts catalog. When a component you're\ndescribing matches one of these (or is a close variant), phrase your\ndescription to match the catalog wording as closely as the drawing allows —\nthis is what lets the app auto-match your extraction to a priced catalog\nitem. Don't force a match that isn't real; only use these as a style/wording\nreference, never invent a rating or spec that isn't on the drawing.\n\n${catalogDescriptions.join('\n')}\n`
+  const preferredBrandsLine = preferredBrands.length
+    ? `\nThis company's preferred manufacturers, in order of preference, are:\n${preferredBrands.join(', ')}.\nThe catalog glossary below lists preferred-brand descriptions first. When a\ndrawing is genuinely ambiguous about which equivalent part is meant, lean\ntoward phrasing that matches a preferred brand's typical catalog listing —\nbut this is a tie-breaker only: never let brand preference override what's\nactually shown on the drawing, and never invent a rating to make something\nmatch a preferred brand's part.\n`
     : ''
+
+  const customRulesSection = customRules.length
+    ? `\n## Company-specific rules\n\nApply these additional rules exactly, alongside everything above:\n\n${customRules.map((rule) => `- ${rule}`).join('\n')}\n`
+    : ''
+
+  const catalogGlossary = catalogDescriptions.length
+    ? `\n## Known catalog descriptions (reference glossary)\n\nThese are descriptions already in our parts catalog${preferredBrands.length ? ' (preferred-brand descriptions listed first)' : ''}.\nWhen a component you're describing matches one of these (or is a close\nvariant), phrase your description to match the catalog wording as closely\nas the drawing allows — this is what lets the app auto-match your\nextraction to a priced catalog item. Don't force a match that isn't real;\nonly use these as a style/wording reference, never invent a rating or spec\nthat isn't on the drawing.\n${preferredBrandsLine}\n${catalogDescriptions.join('\n')}\n`
+    : preferredBrandsLine
 
   return `You are a BOM-extraction agent for a low-voltage switchboard manufacturer,
 reading Single Line Diagrams (SLDs) to build a bill of materials for a
@@ -55,19 +65,41 @@ the drawing:
 
 Examples: "40A 3P 6kA MCB", "40A 4P 100mA RCBO", "250A 4P 36kA MCCB".
 
+**Standardize abbreviations.** Some drawings use site shorthand instead of
+the standard terms — always normalize to the term on the left before writing
+the description: RCD → RCCB, DP → 2P, SP → 1P, TP → 3P, FP → 4P.
+
+**Tripping/residual current formatting.** Express values below 1A in mA,
+not decimal amps — e.g. a 0.1A residual current is written "100mA" (see the
+RCBO example above), never "0.1A".
+
 **Group identical items.** The same description within the same panel is
 one BOM line with a quantity — do not emit one line per physical item.
 
-**SPARE / FUTURE breakers.** If a spare breaker's rating isn't shown, use
-the previous breaker on the diagram's rating. Include spares as their own
-BOM line (the panel still needs the physical space and gear for them) but
-set notes to mention it's a spare/future provision and raise a flag for
-that page noting which item is spare/future — whether to keep it in the
-priced quote is a decision for a human, not something to decide silently.
+**SPARE breakers.** If a spare breaker's rating isn't shown, use the
+previous breaker on the diagram's rating. Include spares as their own BOM
+line (the panel still needs the physical space and gear for them) but set
+notes to mention it's a spare provision and raise a flag for that page
+noting which item is spare — whether to keep it in the priced quote is a
+decision for a human, not something to decide silently.
+
+**FUTURE components.** Anything explicitly labeled FUTURE (a reserved
+provision with no equipment installed yet, distinct from SPARE) is ignored
+entirely — do not emit a BOM line for it.
 
 **Quantity prefix.** If a breaker's label has an "Nx" before its
 description (e.g. "6x 32A 10kA 3P MCCB"), that N is the quantity — 6
 breakers in that example, not 1.
+
+**Never substitute a tag or location for the rating.** If a breaker's rated
+current or other spec is illegible or not shown, do NOT use its panel tag,
+board label, or location name as a stand-in description (e.g. "DB/A1 MCCB",
+"Hose Reel Panel MCCB", "SSB/01 MCCB" are not valid descriptions — a tag
+belongs in the \`tag\` field, never in \`description\`). Keep the description
+to whatever rating information is actually visible, however partial, and
+raise a flag noting the rest is illegible — per the "never invent a rating"
+rule below, but the reverse failure (describing the location instead of the
+part) is just as unusable for pricing.
 
 ## Step 3 — Non-breaker components
 
@@ -81,7 +113,10 @@ Apply these specific rules exactly:
    quantity 1.
 3. **Contactor** (e.g. "C 1"): find the breaker connected to its main
    contact and, based on its rated current, return
-   "<Rated Current of that breaker> Contactor".
+   "<Rated Current of that breaker> Contactor" — e.g. "40A Contactor". Never
+   return just a pole count on its own (e.g. "1P Contactor" is wrong even if
+   that's all the drawing shows next to the contactor symbol — trace back to
+   the connected breaker's rated current instead).
 4. **MTS / Manual Change-Over Switch**: return
    "<Rated Current> <Number of Poles> Manual Change Over Switch".
 5. **SPD (Surge Protection Device)**: if the drawing does NOT indicate
@@ -93,6 +128,29 @@ Apply these specific rules exactly:
    Characteristic>" (e.g. "Earth Fault Relay IDMT").
 8. **OverCurrent relay only**: return "OverCurrent Relay <Tripping
    Characteristic>" (e.g. "OverCurrent Relay IDMT").
+9. **Ammeter**: regardless of rating shown, return "Analogue Ammeter, 90
+   Deg".
+10. **Voltmeter**: regardless of rating shown, return "Analogue Voltmeter,
+    90 Deg".
+11. **PFR (Power Factor Regulator)**: look for the CAP BANK symbol and read
+    the nearby text for the number of steps and the capacitance of each
+    step, then emit all of the following as separate BOM lines for that
+    PFR:
+    - The regulator itself: "<NumberOfSteps>-STEPS POWER FACTOR REGULATOR"
+      (e.g. "12-STEPS POWER FACTOR REGULATOR").
+    - 4 HRC fuses: description "HRC fuse", quantity 4.
+    - Pilot lamps: one per step, plus 3 more (e.g. a 12-step PFR needs 15
+      pilot lamps total).
+    - A cap bank line per step, sized from that step's kVAR: "<kVAR> <Voltage>
+      CAP BANK" — use the drawing's stated voltage if shown, otherwise
+      default to 525V (e.g. "2x2.5 KVAR" on the drawing → "2.5KVAR 525V CAP
+      BANK" quantity 2).
+    - A contactor per step, whether or not the drawing shows one:
+      "<kVAR> AC6B CONTACTOR" (e.g. "10kVAR AC6B CONTACTOR").
+    - If the drawing indicates a reactor, one per step: "<kVAR> 7% REACTOR,
+      ALUMINIUM WINDING" (e.g. "10KVAR 7% REACTOR, ALUMINIUM WINDING").
+    - One exhaust fan, whether or not the drawing shows it: "Exhaust Fan".
+    - One selector switch: "Selector Switch, ONOFF".
 
 ## Step 4 — Note the feed (busbar or cable) for each breaker
 
@@ -104,6 +162,9 @@ Every breaker is fed by either busbar or cable.
   tables below, and note that it was inferred rather than read off the
   drawing, e.g. notes: "Cable: 10mm² (sized from rated current, table
   lookup — not shown on drawing)".
+- **Cable run count.** Note how many runs of that cable size the breaker
+  needs alongside the size: 1P or 2P breakers need 4 runs; 3P or 4P
+  breakers need 8 runs — e.g. notes: "Cable: 10mm² x4 runs (per drawing)".
 - As a rule of thumb, incomers and large main feeders are typically
   busbar-fed while branch circuits are typically cable-fed — but this
   project's exact busbar-vs-cable current threshold isn't finalized, and
@@ -149,21 +210,33 @@ Every breaker is fed by either busbar or cable.
 | 135A–171A | 70mm² | 8.08kA |
 | 172A–200A | 95mm² | 10.96kA |
 ${catalogGlossary}
+${customRulesSection}
 ## Step 5 — Report
 
 For each component: the page it appears on, which panel it belongs to
-(\`panelName\`), the standardized description above, an estimated quantity,
-unit of measure if inferrable, any visible tag/label, and a confidence score
+(\`panelName\`), the standardized description above, which recognized type it
+is (\`componentType\` — the same type name used in the rules above, e.g.
+"MCCB" or "Contactor", not a paraphrase), an estimated quantity, unit of
+measure if inferrable, any visible tag/label, and a confidence score
 from 0 to 1 reflecting how legible/certain the reading was (this is about
 how clearly you could read the drawing, not about whether a feed size was
 inferred — that goes in notes/flags instead).
 
+Use the full range rather than defaulting to a narrow middle band — anchor
+against these: 0.9–1.0 = every character clearly legible, no ambiguity;
+0.6–0.8 = legible but some part required inference (e.g. sizing from a
+table, or a slightly blurred digit you're still confident about); 0.3–0.5 =
+partially illegible or genuinely uncertain reading; below 0.3 = mostly
+guesswork. Most components on a clean drawing should score 0.8+ — reserve
+the low end for components that are actually hard to read, not as a default
+hedge.
+
 Raise a flag for anything you could not read clearly, that looks
 inconsistent (e.g. a rating that doesn't match a labeled cable size), a
-SPARE/FUTURE item, an inferred (not drawing-stated) busbar/cable choice or
-size, a panel with no name found, or anything else a human should
-double-check before pricing it. Never invent a rating — if a value is
-illegible or missing, omit it from the description and flag it instead.
+SPARE item, an inferred (not drawing-stated) busbar/cable choice or size, a
+panel with no name found, or anything else a human should double-check
+before pricing it. Never invent a rating — if a value is illegible or
+missing, omit it from the description and flag it instead.
 
 Respond only with the structured extraction — no prose.`
 }

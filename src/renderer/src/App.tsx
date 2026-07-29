@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
+import { FileText, Receipt } from 'lucide-react'
 import { SplashScreen } from '@renderer/components/animation/SplashScreen'
 import { SetupScreen } from '@renderer/components/auth/SetupScreen'
 import { LoginScreen } from '@renderer/components/auth/LoginScreen'
@@ -7,11 +8,14 @@ import { TopBar } from '@renderer/components/layout/TopBar'
 import { SldListColumn } from '@renderer/components/layout/SldListColumn'
 import { CenterPanel } from '@renderer/components/layout/CenterPanel'
 import { QuotationListColumn } from '@renderer/components/layout/QuotationListColumn'
+import { SidebarRail } from '@renderer/components/layout/SidebarRail'
 import { CreateProjectDialog } from '@renderer/components/layout/CreateProjectDialog'
 import { AddSldDialog } from '@renderer/components/layout/AddSldDialog'
 import { CatalogModal } from '@renderer/components/catalog/CatalogModal'
 import { SettingsPage } from '@renderer/components/settings/SettingsPage'
 import { useUiStore } from '@renderer/state/useUiStore'
+import { useWindowWidth } from '@renderer/hooks/useWindowWidth'
+import { useKeyboardShortcuts } from '@renderer/hooks/useKeyboardShortcuts'
 import { useProjects } from '@renderer/state/queries/useProjects'
 import { useDeleteSld, useSlds, useUploadSld } from '@renderer/state/queries/useSlds'
 import { useDeleteQuotation, useQuotationsByProject } from '@renderer/state/queries/useQuotation'
@@ -59,6 +63,27 @@ function App(): React.JSX.Element {
   const [addSldOpen, setAddSldOpen] = useState(false)
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Below this width: the two side columns collapse to icon rails (pinned
+  // open on demand as an overlay) so the center PDF+Quotation split keeps
+  // its room, and the TopBar drops its button text labels (icon + tooltip
+  // only) to avoid overflowing off-window. Pin state resets when the
+  // columns un-collapse (reset during render, not an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect) so a stale pin
+  // from a previous narrow session doesn't reopen unexpectedly the next
+  // time the window narrows again.
+  const windowWidth = useWindowWidth()
+  const isNarrowWindow = windowWidth < 1280
+  const [sldRailPinned, setSldRailPinned] = useState(false)
+  const [quotationRailPinned, setQuotationRailPinned] = useState(false)
+  const [prevIsNarrowWindow, setPrevIsNarrowWindow] = useState(isNarrowWindow)
+  if (isNarrowWindow !== prevIsNarrowWindow) {
+    setPrevIsNarrowWindow(isNarrowWindow)
+    if (!isNarrowWindow) {
+      setSldRailPinned(false)
+      setQuotationRailPinned(false)
+    }
+  }
 
   // Cold-launch splash: keep it up until the first data load resolves, with a
   // floor so it doesn't just flash on a warm/fast start.
@@ -112,6 +137,27 @@ function App(): React.JSX.Element {
     if (selectedQuotationId === quotation.id) clearQuotation()
   }
 
+  const shortcuts = useMemo(
+    () => [
+      {
+        key: 'u',
+        ctrl: true,
+        handler: () => selectedProject && uploadSld.mutate({ projectId: selectedProject.id })
+      },
+      { key: 'n', ctrl: true, shift: true, handler: () => setCreateProjectOpen(true) },
+      {
+        key: 'e',
+        ctrl: true,
+        handler: () => selectedProject && exportProject.mutate(selectedProject.id)
+      },
+      { key: '1', ctrl: true, handler: () => selectedSld && setPanelMode('split') },
+      { key: '2', ctrl: true, handler: () => selectedSld && setPanelMode('pdf-full') },
+      { key: '3', ctrl: true, handler: () => selectedSld && setPanelMode('quotation-full') }
+    ],
+    [selectedProject, selectedSld, uploadSld, exportProject, setPanelMode]
+  )
+  useKeyboardShortcuts(shortcuts)
+
   if (authLoading) {
     return (
       <AnimatePresence>
@@ -133,6 +179,7 @@ function App(): React.JSX.Element {
       <AnimatePresence>{showSplash && <SplashScreen key="splash" />}</AnimatePresence>
       <div className="flex h-screen flex-col bg-bg text-text-primary">
         <TopBar
+          compact={isNarrowWindow}
           project={selectedProject}
           matcherFlagCount={matcherFlagCount}
           aiFlagCount={aiFlagCount}
@@ -149,25 +196,45 @@ function App(): React.JSX.Element {
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <div className="flex flex-1 overflow-hidden">
-          <SldListColumn
-            slds={slds}
-            selectedSldId={selectedSldId}
-            onSelect={handleSelectSld}
-            onAddSld={() => setAddSldOpen(true)}
-            onDeleteSld={handleDeleteSld}
-            addDisabled={!selectedProject}
-          />
+          <SidebarRail
+            side="left"
+            label="SLDs"
+            icon={FileText}
+            count={slds.length}
+            collapsed={isNarrowWindow}
+            pinned={sldRailPinned}
+            onTogglePinned={() => setSldRailPinned((p) => !p)}
+          >
+            <SldListColumn
+              slds={slds}
+              selectedSldId={selectedSldId}
+              onSelect={handleSelectSld}
+              onAddSld={() => setAddSldOpen(true)}
+              onDeleteSld={handleDeleteSld}
+              addDisabled={!selectedProject}
+            />
+          </SidebarRail>
           <CenterPanel sld={selectedSld} panelMode={panelMode} onPanelModeChange={setPanelMode} />
-          <QuotationListColumn
-            quotations={quotations}
-            sldsById={sldsById}
-            selectedQuotationId={selectedQuotationId}
-            onSelect={(quotationId) => {
-              const quotation = quotations.find((q) => q.id === quotationId)
-              if (quotation) selectQuotation(quotationId, quotation.sldId)
-            }}
-            onDeleteQuotation={handleDeleteQuotation}
-          />
+          <SidebarRail
+            side="right"
+            label="Quotations"
+            icon={Receipt}
+            count={quotations.length}
+            collapsed={isNarrowWindow}
+            pinned={quotationRailPinned}
+            onTogglePinned={() => setQuotationRailPinned((p) => !p)}
+          >
+            <QuotationListColumn
+              quotations={quotations}
+              sldsById={sldsById}
+              selectedQuotationId={selectedQuotationId}
+              onSelect={(quotationId) => {
+                const quotation = quotations.find((q) => q.id === quotationId)
+                if (quotation) selectQuotation(quotationId, quotation.sldId)
+              }}
+              onDeleteQuotation={handleDeleteQuotation}
+            />
+          </SidebarRail>
         </div>
 
         <CreateProjectDialog
@@ -185,7 +252,11 @@ function App(): React.JSX.Element {
             onClose={() => setAddSldOpen(false)}
           />
         )}
-        <CatalogModal open={catalogOpen} onClose={() => setCatalogOpen(false)} />
+        <CatalogModal
+          open={catalogOpen}
+          onClose={() => setCatalogOpen(false)}
+          project={selectedProject}
+        />
         <SettingsPage
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}

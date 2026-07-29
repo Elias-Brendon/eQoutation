@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { ipcMain, shell } from 'electron'
+import { shell } from 'electron'
 import { getSldById, updateSldStatus } from '../db/repositories/sldsRepo'
 import { getProjectById } from '../db/repositories/projectsRepo'
 import { getLatestExtractionForSld } from '../db/repositories/extractionsRepo'
@@ -25,6 +25,9 @@ import {
   deleteQuotationExcelFile
 } from '../quotation/quotationExcelBuilder'
 import { getSettings } from '../settings/settingsStore'
+import { resolveEffectivePreferredBrands } from '../settings/preferredBrandResolver'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type { Quotation, QuotationComment } from '@shared/types/entities'
 
@@ -34,20 +37,28 @@ function generateQuotationCode(): string {
 }
 
 export function registerQuotationsIpc(): void {
-  ipcMain.handle(IPC.quotationsGenerate, (_event, sldId: string): Quotation => {
+  safeHandle(IPC.quotationsGenerate, (_event, sldId: string): Quotation => {
     const sld = getSldById(sldId)
-    if (!sld) throw new Error(`SLD not found: ${sldId}`)
+    if (!sld) throw new AppError('DB_SLD_NOT_FOUND')
 
     const extraction = getLatestExtractionForSld(sldId)
     if (!extraction || extraction.status !== 'done') {
-      throw new Error('Run AI extraction on this SLD before generating a quotation.')
+      throw new AppError('QT_NOT_EXTRACTED')
     }
 
     const catalogItems = getAllCatalogItems()
-    const { defaultMargin, confidenceThreshold, preferredBrands } = getSettings()
+    const { defaultMargin, confidenceThreshold, preferredBrands, preferredBrandsByType } =
+      getSettings()
 
     const lineInputs: QuotationLineInput[] = extraction.components.map((component) => {
-      const { catalogItem, confidence } = matchComponent(component, catalogItems, preferredBrands)
+      const { catalogItem, confidence } = matchComponent(
+        component,
+        catalogItems,
+        resolveEffectivePreferredBrands(component.componentType, {
+          preferredBrands,
+          preferredBrandsByType
+        })
+      )
       const unitCost = catalogItem?.unitPrice ?? 0
       const totalCost = component.qty * unitCost
       return {
@@ -55,6 +66,8 @@ export function registerQuotationsIpc(): void {
         pageNumber: component.pageNumber,
         panelName: component.panelName,
         tag: component.tag,
+        sku: catalogItem?.sku ?? '',
+        componentType: component.componentType ?? '',
         description: catalogItem?.description ?? component.description,
         maker: catalogItem?.maker ?? '',
         qty: component.qty,
@@ -115,19 +128,19 @@ export function registerQuotationsIpc(): void {
     return quotation
   })
 
-  ipcMain.handle(IPC.quotationsGetBySld, (_event, sldId: string) => getLatestQuotationForSld(sldId))
+  safeHandle(IPC.quotationsGetBySld, (_event, sldId: string) => getLatestQuotationForSld(sldId))
 
-  ipcMain.handle(IPC.quotationsListByProject, (_event, projectId: string) =>
+  safeHandle(IPC.quotationsListByProject, (_event, projectId: string) =>
     listQuotationsByProject(projectId)
   )
 
-  ipcMain.handle(IPC.quotationsExport, async (_event, quotationId: string): Promise<Quotation> => {
+  safeHandle(IPC.quotationsExport, async (_event, quotationId: string): Promise<Quotation> => {
     const quotation = getQuotationById(quotationId)
-    if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+    if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
     const sld = getSldById(quotation.sldId)
-    if (!sld) throw new Error(`SLD not found: ${quotation.sldId}`)
+    if (!sld) throw new AppError('DB_SLD_NOT_FOUND')
     const project = getProjectById(sld.projectId)
-    if (!project) throw new Error(`Project not found: ${sld.projectId}`)
+    if (!project) throw new AppError('DB_PROJECT_NOT_FOUND')
 
     const filePath = await writeQuotationWorkbook(quotation, project, sld)
     setQuotationExcelPath(quotation.id, filePath)
@@ -136,11 +149,11 @@ export function registerQuotationsIpc(): void {
     return { ...quotation, excelFilePath: filePath }
   })
 
-  ipcMain.handle(
+  safeHandle(
     IPC.quotationsApprove,
     (_event, quotationId: string, comment?: string): Quotation => {
       const quotation = getQuotationById(quotationId)
-      if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+      if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
 
       approveQuotation(quotationId)
       updateSldStatus(quotation.sldId, 'done')
@@ -150,11 +163,11 @@ export function registerQuotationsIpc(): void {
     }
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.quotationsReject,
     (_event, quotationId: string, comment?: string): Quotation => {
       const quotation = getQuotationById(quotationId)
-      if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+      if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
 
       rejectQuotation(quotationId)
       updateSldStatus(quotation.sldId, 'rejected')
@@ -164,30 +177,30 @@ export function registerQuotationsIpc(): void {
     }
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.quotationsAddComment,
     (_event, quotationId: string, body: string): QuotationComment => addComment(quotationId, body)
   )
 
-  ipcMain.handle(IPC.quotationsListComments, (_event, quotationId: string) =>
+  safeHandle(IPC.quotationsListComments, (_event, quotationId: string) =>
     listComments(quotationId)
   )
 
-  ipcMain.handle(IPC.quotationsDelete, (_event, quotationId: string): void => {
+  safeHandle(IPC.quotationsDelete, (_event, quotationId: string): void => {
     const quotation = getQuotationById(quotationId)
-    if (!quotation) throw new Error(`Quotation not found: ${quotationId}`)
+    if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
     if (quotation.excelFilePath) deleteQuotationExcelFile(quotation.excelFilePath)
     deleteQuotation(quotationId)
   })
 
-  ipcMain.handle(
+  safeHandle(
     IPC.quotationLinesUpdateMargin,
     (_event, lineId: string, margin: number): void => {
       updateQuotationLineMargin(lineId, margin)
     }
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.quotationPanelsUpdateMargin,
     (_event, quotationId: string, panelName: string, margin: number): void => {
       updatePanelMargin(quotationId, panelName, margin)

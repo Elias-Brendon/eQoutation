@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   listFlagsByQuotation,
   countOpenFlagsByProject,
@@ -11,6 +10,9 @@ import { getAllCatalogItems, getCatalogItemById } from '../db/repositories/catal
 import { addCatalogItem } from '../catalog/catalogWriter'
 import { matchComponent } from '../quotation/catalogMatcher'
 import { getSettings } from '../settings/settingsStore'
+import { resolveEffectivePreferredBrands } from '../settings/preferredBrandResolver'
+import { AppError } from '../errors/AppError'
+import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type {
   CatalogItem,
@@ -22,32 +24,32 @@ import type {
 } from '@shared/types/entities'
 
 export function registerFlagsIpc(): void {
-  ipcMain.handle(IPC.flagsListByQuotation, (_event, quotationId: string): Flag[] =>
+  safeHandle(IPC.flagsListByQuotation, (_event, quotationId: string): Flag[] =>
     listFlagsByQuotation(quotationId)
   )
 
-  ipcMain.handle(IPC.flagsCountOpenByProject, (_event, projectId: string): FlagOriginCounts =>
+  safeHandle(IPC.flagsCountOpenByProject, (_event, projectId: string): FlagOriginCounts =>
     countOpenFlagsByProject(projectId)
   )
 
-  ipcMain.handle(IPC.flagsRaise, (_event, input: RaiseFlagInput): Flag => raiseHumanFlag(input))
+  safeHandle(IPC.flagsRaise, (_event, input: RaiseFlagInput): Flag => raiseHumanFlag(input))
 
-  ipcMain.handle(IPC.flagsResolve, (_event, id: string, resolutionNote?: string): void =>
+  safeHandle(IPC.flagsResolve, (_event, id: string, resolutionNote?: string): void =>
     resolveFlag(id, resolutionNote)
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.flagsResolveUnmatchedLine,
     (_event, flagId: string): ResolveUnmatchedLineResult => {
       const flag = getFlagById(flagId)
-      if (!flag) throw new Error(`Flag not found: ${flagId}`)
-      if (!flag.quotationLineId) throw new Error('Flag is not linked to a quotation line')
+      if (!flag) throw new AppError('DB_FLAG_NOT_FOUND')
+      if (!flag.quotationLineId) throw new AppError('DB_FLAG_NOT_LINKED')
 
       const line = getQuotationLineById(flag.quotationLineId)
-      if (!line) throw new Error(`Quotation line not found: ${flag.quotationLineId}`)
+      if (!line) throw new AppError('DB_QUOTATION_LINE_NOT_FOUND')
 
       const catalogItems = getAllCatalogItems()
-      const { preferredBrands } = getSettings()
+      const { preferredBrands, preferredBrandsByType } = getSettings()
       const { catalogItem, confidence } = matchComponent(
         {
           description: line.description,
@@ -56,11 +58,12 @@ export function registerFlagsIpc(): void {
           tag: line.tag,
           pageNumber: line.pageNumber,
           panelName: line.panelName,
+          componentType: line.componentType,
           confidence: 0,
           notes: ''
         },
         catalogItems,
-        preferredBrands
+        resolveEffectivePreferredBrands(line.componentType, { preferredBrands, preferredBrandsByType })
       )
 
       if (!catalogItem) return { matched: false, catalogItem: null }
@@ -74,11 +77,11 @@ export function registerFlagsIpc(): void {
     }
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.flagsLinkLineToCatalogItem,
     (_event, flagId: string | null, lineId: string, catalogItemId: string): void => {
       const catalogItem = getCatalogItemById(catalogItemId)
-      if (!catalogItem) throw new Error(`Catalog item not found: ${catalogItemId}`)
+      if (!catalogItem) throw new AppError('DB_CATALOG_ITEM_NOT_FOUND')
 
       applyLineMatch(lineId, catalogItem, 1)
       if (flagId) {
@@ -90,7 +93,7 @@ export function registerFlagsIpc(): void {
     }
   )
 
-  ipcMain.handle(
+  safeHandle(
     IPC.flagsAddCatalogItemAndLink,
     async (
       _event,

@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { getCatalogStatus, findHeaderRow, columnFor } from './catalogLoader'
 import { insertCatalogItem, type CatalogItemInput } from '../db/repositories/catalogRepo'
+import { AppError } from '../errors/AppError'
 import type { CatalogItem } from '@shared/types/entities'
 
 // Appends a new row to the real source .xlsx (so it survives a future
@@ -9,16 +10,16 @@ import type { CatalogItem } from '@shared/types/entities'
 export async function addCatalogItem(input: CatalogItemInput): Promise<CatalogItem> {
   const status = getCatalogStatus()
   if (!status.sourcePath) {
-    throw new Error('No catalog source file loaded — reload the catalog before adding an item.')
+    throw new AppError('CAT_NO_SOURCE_FILE')
   }
 
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.readFile(status.sourcePath)
   const sheet = workbook.worksheets[0]
-  if (!sheet) throw new Error('Catalog workbook has no sheet to append to.')
+  if (!sheet) throw new AppError('CAT_NO_SHEET')
 
   const header = findHeaderRow(sheet)
-  if (!header) throw new Error('Could not find the catalog header row to append to.')
+  if (!header) throw new AppError('CAT_NO_HEADER_ROW')
 
   const newRowNumber = sheet.rowCount + 1
   const row = sheet.getRow(newRowNumber)

@@ -10,12 +10,14 @@ import { registerQuotationsIpc } from './quotations.ipc'
 import { registerFlagsIpc } from './flags.ipc'
 import { registerFeedbackIpc } from './feedback.ipc'
 import { registerExportIpc } from './export.ipc'
+import { registerFxIpc } from './fx.ipc'
 
 export function registerAllIpc(): void {
   registerAuthIpc()
   registerSettingsIpc()
   registerSecretsIpc()
   registerProjectsIpc()
+  registerFxIpc()
   registerSldsIpc()
   registerAnnotationsIpc()
   registerCatalogIpc()
