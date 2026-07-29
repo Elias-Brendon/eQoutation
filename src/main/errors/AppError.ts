@@ -8,10 +8,12 @@ import { formatErrorCode, ERROR_CODES, type ErrorKey } from '@shared/errors/erro
 // anything that *isn't* an AppError gets sanitized before reaching the UI.
 export class AppError extends Error {
   readonly errorCode: string
+  readonly usage?: { inputTokens: number; outputTokens: number }
 
-  constructor(key: ErrorKey) {
+  constructor(key: ErrorKey, usage?: { inputTokens: number; outputTokens: number }) {
     super(formatErrorCode(key))
     this.name = 'AppError'
     this.errorCode = ERROR_CODES[key].code
+    this.usage = usage
   }
 }

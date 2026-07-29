@@ -79,6 +79,9 @@ export function registerAiIpc(): void {
             break
           } catch (err) {
             lastError = err as Error
+            if (err instanceof AppError && err.usage) {
+              accumulatedUsage = addUsage(accumulatedUsage, err.usage)
+            }
             if (attempt < maxExtractionRetries) {
               event.sender.send(IPC.aiExtractionProgress, {
                 sldId,

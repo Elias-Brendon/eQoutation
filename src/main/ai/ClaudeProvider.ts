@@ -96,21 +96,30 @@ export class ClaudeProvider implements AIProvider {
     onProgress?.({ pct: 92, stage: 'Parsing response' })
 
     if (message.stop_reason === 'max_tokens') {
-      throw new AppError('AI_EXTRACTION_TRUNCATED')
+      throw new AppError('AI_EXTRACTION_TRUNCATED', {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens
+      })
     }
 
     const textBlock = message.content.find(
       (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
     )
     if (!textBlock) {
-      throw new AppError('AI_RESPONSE_UNREADABLE')
+      throw new AppError('AI_RESPONSE_UNREADABLE', {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens
+      })
     }
 
     let parsed: unknown
     try {
       parsed = JSON.parse(textBlock.text)
     } catch {
-      throw new AppError('AI_RESPONSE_UNREADABLE')
+      throw new AppError('AI_RESPONSE_UNREADABLE', {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens
+      })
     }
     const { components, flags } = normalizeExtractionPayload(parsed)
 
