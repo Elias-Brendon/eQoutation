@@ -30,7 +30,7 @@ import { resolveEffectivePreferredBrands } from '../settings/preferredBrandResol
 import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
-import type { Quotation, QuotationComment } from '@shared/types/entities'
+import type { AnnotationBoundingBox, Quotation, QuotationComment } from '@shared/types/entities'
 
 function generateQuotationCode(): string {
   const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -63,6 +63,7 @@ export function registerQuotationsIpc(): void {
       const unitCost = catalogItem?.unitPrice ?? 0
       const totalCost = component.qty * unitCost
       return {
+        id: randomUUID(),
         catalogItemId: catalogItem?.id ?? null,
         pageNumber: component.pageNumber,
         panelName: component.panelName,
@@ -95,24 +96,29 @@ export function registerQuotationsIpc(): void {
     )
 
     const flagInputs: CreateFlagInput[] = []
-    for (const line of quotation.lines) {
-      if (line.matchStatus === 'unknown') {
+    const flagBoundingBoxes: (AnnotationBoundingBox | null)[] = []
+    for (let i = 0; i < lineInputs.length; i++) {
+      const lineInput = lineInputs[i]
+      const component = extraction.components[i]
+      if (lineInput.matchStatus === 'unknown') {
         flagInputs.push({
-          quotationLineId: line.id,
+          quotationLineId: lineInput.id,
           origin: 'matcher',
           severity: 'warning',
-          message: `Unmatched item: "${line.description}" (page ${line.pageNumber}) — no catalog match found.`,
-          pageNumber: line.pageNumber
+          message: `Unmatched item: "${lineInput.description}" (page ${lineInput.pageNumber}) — no catalog match found.`,
+          pageNumber: lineInput.pageNumber
         })
+        flagBoundingBoxes.push(null)
       }
-      if (line.aiConfidence < confidenceThreshold) {
+      if (lineInput.aiConfidence < confidenceThreshold) {
         flagInputs.push({
-          quotationLineId: line.id,
+          quotationLineId: lineInput.id,
           origin: 'ai',
           severity: 'warning',
-          message: `Low-confidence extraction: "${line.description}" (page ${line.pageNumber}) — AI confidence ${(line.aiConfidence * 100).toFixed(0)}%.`,
-          pageNumber: line.pageNumber
+          message: `Low-confidence extraction: "${lineInput.description}" (page ${lineInput.pageNumber}) — AI confidence ${(lineInput.aiConfidence * 100).toFixed(0)}%.`,
+          pageNumber: lineInput.pageNumber
         })
+        flagBoundingBoxes.push(component.boundingBox)
       }
     }
     for (const flag of extraction.flags) {
@@ -123,10 +129,11 @@ export function registerQuotationsIpc(): void {
         message: flag.message,
         pageNumber: flag.pageNumber
       })
+      flagBoundingBoxes.push(flag.boundingBox)
     }
     if (flagInputs.length > 0) {
       const createdFlags = createFlags(quotation.id, flagInputs)
-      createAiAnnotationsForFlags(sldId, createdFlags)
+      createAiAnnotationsForFlags(sldId, createdFlags, flagBoundingBoxes)
     }
 
     return quotation
