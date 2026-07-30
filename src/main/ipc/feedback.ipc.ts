@@ -1,6 +1,7 @@
 import { getFlagById, resolveFlag } from '../db/repositories/flagsRepo'
 import { getQuotationLineById, updateQuotationLine } from '../db/repositories/quotationsRepo'
 import { createFeedbackLog, listFeedbackByLine } from '../db/repositories/feedbackLogRepo'
+import { resolveAiAnnotation } from '../db/repositories/annotationsRepo'
 import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
@@ -55,6 +56,7 @@ export function registerFeedbackIpc(): void {
       if (input.flagId && input.action !== 'flagged_for_later') {
         if (!getFlagById(input.flagId)) throw new AppError('DB_FLAG_NOT_FOUND')
         resolveFlag(input.flagId, input.note)
+        resolveAiAnnotation(input.flagId)
       }
 
       return getQuotationLineById(input.lineId) as QuotationLine
