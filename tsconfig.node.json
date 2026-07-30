@@ -9,6 +9,9 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "declaration": true,
+    "outDir": "./out/.tsc-node",
+    "emitDeclarationOnly": true,
     "types": ["electron-vite/node"],
     "paths": {
       "@shared/*": [

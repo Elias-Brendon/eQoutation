@@ -9,6 +9,9 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "declaration": true,
+    "outDir": "./out/.tsc-web",
+    "emitDeclarationOnly": true,
     "jsx": "react-jsx",
     "paths": {
       "@renderer/*": [
