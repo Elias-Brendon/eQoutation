@@ -231,6 +231,15 @@ guesswork. Most components on a clean drawing should score 0.8+ — reserve
 the low end for components that are actually hard to read, not as a default
 hedge.
 
+For each component and each flag, also estimate a \`boundingBox\`: the
+region on its page that contains it, normalized 0 to 1 (x/y = top-left
+corner, width/height as a fraction of the full page — same convention as
+how annotation coordinates are stored elsewhere in this app). This does
+not need pixel precision — a box that roughly contains the relevant
+symbol, label, or text block is enough to point a human reviewer at the
+right spot. Set it to null only when no specific region applies (e.g. a
+flag about the drawing or panel as a whole, not a specific symbol).
+
 Raise a flag for anything you could not read clearly, that looks
 inconsistent (e.g. a rating that doesn't match a labeled cable size), a
 SPARE item, an inferred (not drawing-stated) busbar/cable choice or size, a
