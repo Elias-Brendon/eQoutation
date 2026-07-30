@@ -125,12 +125,14 @@ interface QuotationTableProps {
   sldId: string
   projectId: string
   onFocusLine?: (pageNumber: number) => void
+  onRevealLineAnnotation?: (lineId: string) => void
 }
 
 export function QuotationTable({
   sldId,
   projectId,
-  onFocusLine
+  onFocusLine,
+  onRevealLineAnnotation
 }: QuotationTableProps): React.JSX.Element {
   const { data: quotation, isLoading } = useQuotation(sldId)
   const generate = useGenerateQuotation()
@@ -316,7 +318,10 @@ export function QuotationTable({
               {visibleLines.map((line) => (
                 <tr
                   key={line.id}
-                  onClick={() => onFocusLine?.(line.pageNumber)}
+                  onClick={() => {
+                    onFocusLine?.(line.pageNumber)
+                    onRevealLineAnnotation?.(line.id)
+                  }}
                   onDoubleClick={() => handleRowDoubleClick(line)}
                   title="Click to jump the PDF to this page — double-click to find or set this line's catalog item"
                   className={cn(
