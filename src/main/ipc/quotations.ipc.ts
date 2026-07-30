@@ -18,6 +18,7 @@ import {
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
 import { createFlags, type CreateFlagInput } from '../db/repositories/flagsRepo'
+import { createAiAnnotationsForFlags } from '../db/repositories/annotationsRepo'
 import { addComment, listComments } from '../db/repositories/quotationCommentsRepo'
 import { matchComponent } from '../quotation/catalogMatcher'
 import {
@@ -123,7 +124,10 @@ export function registerQuotationsIpc(): void {
         pageNumber: flag.pageNumber
       })
     }
-    if (flagInputs.length > 0) createFlags(quotation.id, flagInputs)
+    if (flagInputs.length > 0) {
+      const createdFlags = createFlags(quotation.id, flagInputs)
+      createAiAnnotationsForFlags(sldId, createdFlags)
+    }
 
     return quotation
   })
