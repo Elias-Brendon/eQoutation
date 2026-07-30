@@ -24,6 +24,13 @@ describe('migration runner', () => {
     expect(columnNames).toEqual(expect.arrayContaining(['input_tokens', 'output_tokens']))
   })
 
+  it('adds linked_flag_id and resolved_at columns to annotations', () => {
+    const db = getDb()
+    const columns = db.prepare('PRAGMA table_info(annotations)').all() as { name: string }[]
+    const columnNames = columns.map((c) => c.name)
+    expect(columnNames).toEqual(expect.arrayContaining(['linked_flag_id', 'resolved_at']))
+  })
+
   it('creates the catalog_items table with the columns replaceCatalogItems expects', () => {
     const db = getDb()
     const columns = db.prepare('PRAGMA table_info(catalog_items)').all() as { name: string }[]
