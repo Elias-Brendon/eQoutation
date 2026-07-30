@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { getDb } from '../index'
 import type {
   Annotation,
+  AnnotationBoundingBox,
   AnnotationPoint,
   CreateAnnotationInput,
   Flag
@@ -22,10 +23,12 @@ interface AnnotationRow {
   resolved_at: string | null
 }
 
-const AI_ANNOTATION_COLOR = '#a855f7'
-const AI_PIN_ANCHOR_X = 0.03
-const AI_PIN_BASE_Y = 0.05
-const AI_PIN_STACK_STEP_Y = 0.06
+const AI_ANNOTATION_COLOR = 'var(--color-accent)'
+const AI_BOX_ANCHOR_X = 0.03
+const AI_BOX_BASE_Y = 0.05
+const AI_BOX_STACK_STEP_Y = 0.06
+const AI_BOX_FALLBACK_WIDTH = 0.1
+const AI_BOX_FALLBACK_HEIGHT = 0.04
 
 function toAnnotation(row: AnnotationRow): Annotation {
   return {
@@ -90,11 +93,18 @@ export function deleteAnnotation(id: string): void {
   getDb().prepare('DELETE FROM annotations WHERE id = ?').run(id)
 }
 
-// Fixed anchor, stacked per page — the AI has no spatial/region data to place
-// a pin precisely, only a page number (see design spec's positioning
-// non-goal). Multiple AI flags on the same page stack downward from here.
-export function stackedPinPosition(indexOnPage: number): AnnotationPoint {
-  return { x: AI_PIN_ANCHOR_X, y: AI_PIN_BASE_Y + AI_PIN_STACK_STEP_Y * indexOnPage }
+// Fixed anchor, stacked per page — used only when the model didn't supply a
+// boundingBox for this flag. Returns the box's top-left corner plus a small
+// fixed size, since a rectangle needs two corners, not just a point.
+export function stackedFallbackBox(indexOnPage: number): AnnotationPoint {
+  return { x: AI_BOX_ANCHOR_X, y: AI_BOX_BASE_Y + AI_BOX_STACK_STEP_Y * indexOnPage }
+}
+
+function boxToCorners(box: AnnotationBoundingBox): [AnnotationPoint, AnnotationPoint] {
+  return [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height }
+  ]
 }
 
 export interface CreateAiAnnotationInput {
@@ -102,19 +112,31 @@ export interface CreateAiAnnotationInput {
   pageNumber: number
   commentText: string
   linkedFlagId: string
-  points: AnnotationPoint[]
+  boundingBox: AnnotationBoundingBox | null
+  /** Only used when boundingBox is null, to stack the fallback box. Defaults to 0. */
+  fallbackIndexOnPage?: number
 }
 
 export function createAiAnnotation(input: CreateAiAnnotationInput): Annotation {
+  const corners = input.boundingBox
+    ? boxToCorners(input.boundingBox)
+    : (() => {
+        const anchor = stackedFallbackBox(input.fallbackIndexOnPage ?? 0)
+        return [
+          anchor,
+          { x: anchor.x + AI_BOX_FALLBACK_WIDTH, y: anchor.y + AI_BOX_FALLBACK_HEIGHT }
+        ] as [AnnotationPoint, AnnotationPoint]
+      })()
+
   const row: AnnotationRow = {
     id: randomUUID(),
     sld_id: input.sldId,
     page_number: input.pageNumber,
     author_type: 'ai',
-    shape_type: 'pin',
-    path_data: JSON.stringify(input.points),
+    shape_type: 'rectangle',
+    path_data: JSON.stringify(corners),
     color: AI_ANNOTATION_COLOR,
-    stroke_width: 2.5,
+    stroke_width: 2,
     comment_text: input.commentText,
     created_at: new Date().toISOString(),
     linked_flag_id: input.linkedFlagId,
@@ -131,29 +153,39 @@ export function createAiAnnotation(input: CreateAiAnnotationInput): Annotation {
   return toAnnotation(row)
 }
 
-// Called right after quotation generation creates its batch of flags. Only
-// origin:'ai' flags with a page number get a pin — matcher/human flags and
-// page-less ai flags are silently skipped (see design spec's non-goals).
-// Best-effort per flag: one failed insert must not block the rest, since
-// this runs inside the larger quotation-generation flow.
-export function createAiAnnotationsForFlags(sldId: string, flags: Flag[]): void {
-  const countByPage = new Map<number, number>()
-  for (const flag of flags) {
-    if (flag.origin !== 'ai' || flag.pageNumber === null) continue
-    const indexOnPage = countByPage.get(flag.pageNumber) ?? 0
-    countByPage.set(flag.pageNumber, indexOnPage + 1)
+// Called right after quotation generation creates its batch of flags.
+// `boundingBoxes[i]` must correspond to `flags[i]` — see quotations.ipc.ts,
+// which builds both arrays in lockstep. Only origin:'ai' flags with a page
+// number get an annotation; matcher/human flags and page-less ai flags are
+// silently skipped (see design spec's non-goals). Best-effort per flag: one
+// failed insert must not block the rest.
+export function createAiAnnotationsForFlags(
+  sldId: string,
+  flags: Flag[],
+  boundingBoxes: (AnnotationBoundingBox | null)[]
+): void {
+  const fallbackCountByPage = new Map<number, number>()
+  flags.forEach((flag, i) => {
+    if (flag.origin !== 'ai' || flag.pageNumber === null) return
+    const boundingBox = boundingBoxes[i] ?? null
+    let fallbackIndexOnPage: number | undefined
+    if (!boundingBox) {
+      fallbackIndexOnPage = fallbackCountByPage.get(flag.pageNumber) ?? 0
+      fallbackCountByPage.set(flag.pageNumber, fallbackIndexOnPage + 1)
+    }
     try {
       createAiAnnotation({
         sldId,
         pageNumber: flag.pageNumber,
         commentText: flag.message,
         linkedFlagId: flag.id,
-        points: [stackedPinPosition(indexOnPage)]
+        boundingBox,
+        fallbackIndexOnPage
       })
     } catch (err) {
       console.error('[annotationsRepo] failed to create AI annotation for flag', flag.id, err)
     }
-  }
+  })
 }
 
 // Marks the pin resolved rather than deleting it — the point is a permanent
