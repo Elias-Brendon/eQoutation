@@ -28,7 +28,7 @@ import {
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 import { useAnnotationsBySld } from '@renderer/state/queries/useAnnotations'
-import type { PanelMode, Sld } from '@shared/types/entities'
+import type { Annotation, PanelMode, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
   sld: Sld | null
@@ -82,12 +82,17 @@ export function CenterPanel({
     setFocusPage(undefined)
   }, [sld?.id])
 
-  const handleFocusFlag = (flagId: string): void => {
-    const annotation = sldAnnotations.find((a) => a.linkedFlagId === flagId)
+  const revealAnnotation = (annotation: Annotation | undefined): void => {
     if (!annotation) return
     setFocusPage(annotation.pageNumber)
     setHighlightedAnnotationId(annotation.id)
   }
+
+  const handleFocusFlag = (flagId: string): void =>
+    revealAnnotation(sldAnnotations.find((a) => a.linkedFlagId === flagId))
+
+  const handleRevealLineAnnotation = (lineId: string): void =>
+    revealAnnotation(sldAnnotations.find((a) => a.linkedQuotationLineId === lineId))
 
   useEffect(() => {
     if (!highlightedAnnotationId) return
@@ -179,7 +184,12 @@ export function CenterPanel({
                 </Button>
               )}
             </div>
-            <QuotationTable sldId={sld.id} projectId={sld.projectId} onFocusLine={setFocusPage} />
+            <QuotationTable
+              sldId={sld.id}
+              projectId={sld.projectId}
+              onFocusLine={setFocusPage}
+              onRevealLineAnnotation={handleRevealLineAnnotation}
+            />
           </div>
         ) : (
           <Rail
