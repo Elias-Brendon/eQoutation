@@ -66,11 +66,18 @@ export function useRaiseFlag(): UseMutationResult<
 export function useResolveFlag(): UseMutationResult<
   void,
   Error,
-  { id: string; resolutionNote?: string; quotationId: string; projectId: string }
+  {
+    id: string
+    resolutionNote?: string
+    outcome?: { action: 'accepted' | 'corrected'; value: string }
+    quotationId: string
+    projectId: string
+  }
 > {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, resolutionNote }) => window.api.flags.resolve(id, resolutionNote),
+    mutationFn: ({ id, resolutionNote, outcome }) =>
+      window.api.flags.resolve(id, resolutionNote, outcome),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: flagsQueryKey(variables.quotationId) })
       queryClient.invalidateQueries({ queryKey: openFlagCountsQueryKey(variables.projectId) })
