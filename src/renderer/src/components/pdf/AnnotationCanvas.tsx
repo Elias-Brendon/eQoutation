@@ -19,6 +19,7 @@ interface AnnotationCanvasProps {
   liveColor: string
   liveStrokeWidth: number
   onMarkerClick: (annotation: Annotation) => void
+  highlightedAnnotationId: string | null
 }
 
 export function AnnotationCanvas({
@@ -29,7 +30,8 @@ export function AnnotationCanvas({
   liveShape,
   liveColor,
   liveStrokeWidth,
-  onMarkerClick
+  onMarkerClick,
+  highlightedAnnotationId
 }: AnnotationCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
@@ -91,7 +93,8 @@ export function AnnotationCanvas({
         strokePath(annotation.points, annotation.color, annotation.strokeWidth)
       } else if (
         (annotation.shapeType === 'circle' || annotation.shapeType === 'rectangle') &&
-        annotation.points.length === 2
+        annotation.points.length === 2 &&
+        annotation.authorType !== 'ai'
       ) {
         strokeBoxShape(
           annotation.shapeType,
@@ -116,6 +119,9 @@ export function AnnotationCanvas({
 
   const pins = annotations.filter((a) => a.shapeType === 'pin' && a.points.length > 0)
   const texts = annotations.filter((a) => a.shapeType === 'text' && a.points.length > 0)
+  const aiBoxes = annotations.filter(
+    (a) => a.authorType === 'ai' && a.shapeType === 'rectangle' && a.points.length === 2
+  )
 
   return (
     <div
@@ -154,6 +160,40 @@ export function AnnotationCanvas({
           )}
         </button>
       ))}
+      {aiBoxes.map((box) => {
+        const [a, b] = box.points
+        const left = Math.min(a.x, b.x) * 100
+        const top = Math.min(a.y, b.y) * 100
+        const width = Math.abs(b.x - a.x) * 100
+        const height = Math.abs(b.y - a.y) * 100
+        return (
+          <button
+            key={box.id}
+            onClick={(e) => {
+              e.stopPropagation()
+              onMarkerClick(box)
+            }}
+            className={cn(
+              'pointer-events-auto absolute rounded-sm border-2 bg-transparent',
+              box.resolvedAt !== null && 'opacity-50',
+              box.id === highlightedAnnotationId && 'ai-annotation-highlight'
+            )}
+            style={{
+              left: `${left}%`,
+              top: `${top}%`,
+              width: `${width}%`,
+              height: `${height}%`,
+              borderColor: box.color
+            }}
+            title={box.commentText ?? ''}
+          >
+            <Sparkles
+              className="absolute -left-1 -top-1 h-3 w-3 rounded-full p-0.5"
+              style={{ backgroundColor: box.color, color: 'white' }}
+            />
+          </button>
+        )
+      })}
       {texts.map((text) => (
         <button
           key={text.id}

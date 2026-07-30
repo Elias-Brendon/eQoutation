@@ -62,6 +62,7 @@ interface PdfViewerProps {
   sldId: string
   filename: string
   focusPage?: number
+  highlightedAnnotationId?: string | null
 }
 
 interface Point {
@@ -73,7 +74,12 @@ function devicePixelRatioCapped(): number {
   return Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
 }
 
-export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React.JSX.Element {
+export function PdfViewer({
+  sldId,
+  filename,
+  focusPage,
+  highlightedAnnotationId
+}: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError, error: fileError } = useSldFile(sldId)
   // Spans the toolbar + containerRef together — its own height comes from
   // ITS parent (fixed by flexbox), not from its children, so the resize
@@ -827,6 +833,7 @@ export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React
             liveColor={color}
             liveStrokeWidth={strokeWidth}
             onMarkerClick={handleMarkerClick}
+            highlightedAnnotationId={highlightedAnnotationId ?? null}
           />
           {textEntry && (
             <TextEntryOverlay

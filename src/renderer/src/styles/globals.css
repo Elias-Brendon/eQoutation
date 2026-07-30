@@ -83,3 +83,17 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-surface-hover);
 }
+
+@keyframes ai-annotation-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 101, 44, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(242, 101, 44, 0);
+  }
+}
+
+.ai-annotation-highlight {
+  animation: ai-annotation-pulse 0.6s ease-out 3;
+}
