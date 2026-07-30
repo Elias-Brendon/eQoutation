@@ -4,12 +4,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Eraser,
+  EyeOff,
   Hand,
   Loader2,
   Maximize2,
   MessageCirclePlus,
   Pencil,
   Redo2,
+  Sparkles,
   Square,
   Type,
   Undo2,
@@ -133,6 +135,7 @@ export function PdfViewer({
   const [renderError, setRenderError] = useState<string | null>(null)
 
   const [tool, setTool] = useState<Tool>('pan')
+  const [showAiAnnotations, setShowAiAnnotations] = useState(true)
   const [color, setColor] = useState(ANNOTATION_COLORS[0])
   const [strokeWidth, setStrokeWidth] = useState<number>(DEFAULT_STROKE_WIDTH)
   const [liveStroke, setLiveStroke] = useState<AnnotationPoint[] | null>(null)
@@ -787,6 +790,18 @@ export function PdfViewer({
         </div>
 
         <div className="flex items-center gap-1">
+          <Button
+            variant={showAiAnnotations ? 'accent' : 'ghost'}
+            size="sm"
+            onClick={() => setShowAiAnnotations((v) => !v)}
+            title={showAiAnnotations ? 'Hide AI annotations' : 'Show AI annotations'}
+          >
+            {showAiAnnotations ? (
+              <Sparkles className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )}
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => zoomBy(1 / ZOOM_STEP)} title="Zoom out">
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
@@ -834,6 +849,7 @@ export function PdfViewer({
             liveStrokeWidth={strokeWidth}
             onMarkerClick={handleMarkerClick}
             highlightedAnnotationId={highlightedAnnotationId ?? null}
+            showAiAnnotations={showAiAnnotations}
           />
           {textEntry && (
             <TextEntryOverlay
