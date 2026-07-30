@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Crosshair, Loader2 } from 'lucide-react'
 import { Modal } from '@renderer/components/common/Modal'
 import { Badge } from '@renderer/components/common/Badge'
 import { Button } from '@renderer/components/common/Button'
@@ -21,6 +21,7 @@ interface FlagsPanelProps {
   sldId: string
   projectId: string
   lines: QuotationLine[]
+  onFocusFlag: (flagId: string) => void
 }
 
 export function FlagsPanel({
@@ -29,7 +30,8 @@ export function FlagsPanel({
   quotationId,
   sldId,
   projectId,
-  lines
+  lines,
+  onFocusFlag
 }: FlagsPanelProps): React.JSX.Element {
   const { data: flags = [] } = useFlagsByQuotation(quotationId)
   const raiseFlag = useRaiseFlag()
@@ -117,6 +119,17 @@ export function FlagsPanel({
                 </Badge>
                 {flag.pageNumber !== null && (
                   <span className="text-xs text-text-muted">Page {flag.pageNumber}</span>
+                )}
+                {flag.pageNumber !== null && (
+                  <button
+                    type="button"
+                    onClick={() => onFocusFlag(flag.id)}
+                    className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-text-muted hover:bg-surface-hover hover:text-text-primary"
+                    title="Show on drawing"
+                  >
+                    <Crosshair className="h-3 w-3" />
+                    Show
+                  </button>
                 )}
               </div>
               <p className="mt-1 text-sm text-text-primary">{flag.message}</p>
