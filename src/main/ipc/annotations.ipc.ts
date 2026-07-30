@@ -1,6 +1,7 @@
 import {
   deleteAnnotation,
   insertAnnotation,
+  listAnnotationsBySld,
   listAnnotationsBySldAndPage
 } from '../db/repositories/annotationsRepo'
 import { safeHandle } from './safeHandle'
@@ -11,6 +12,8 @@ export function registerAnnotationsIpc(): void {
   safeHandle(IPC.annotationsListBySldAndPage, (_event, sldId: string, pageNumber: number) =>
     listAnnotationsBySldAndPage(sldId, pageNumber)
   )
+
+  safeHandle(IPC.annotationsListBySld, (_event, sldId: string) => listAnnotationsBySld(sldId))
 
   safeHandle(IPC.annotationsCreate, (_event, input: CreateAnnotationInput) =>
     insertAnnotation(input)

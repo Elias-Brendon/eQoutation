@@ -20,6 +20,14 @@ export function useAnnotations(sldId: string, pageNumber: number): UseQueryResul
   })
 }
 
+export function useAnnotationsBySld(sldId: string | null): UseQueryResult<Annotation[]> {
+  return useQuery({
+    queryKey: ['annotations-by-sld', sldId ?? ''],
+    queryFn: () => window.api.annotations.listBySld(sldId as string),
+    enabled: sldId !== null
+  })
+}
+
 export function useCreateAnnotation(): UseMutationResult<Annotation, Error, CreateAnnotationInput> {
   const queryClient = useQueryClient()
   return useMutation({

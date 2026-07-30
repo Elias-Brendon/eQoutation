@@ -24,6 +24,7 @@ export const IPC = {
   sldsDelete: 'slds:delete',
   sldsReadFile: 'slds:readFile',
   annotationsListBySldAndPage: 'annotations:listBySldAndPage',
+  annotationsListBySld: 'annotations:listBySld',
   annotationsCreate: 'annotations:create',
   annotationsDelete: 'annotations:delete',
   catalogGetStatus: 'catalog:getStatus',

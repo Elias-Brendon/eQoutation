@@ -94,6 +94,8 @@ const api = {
   annotations: {
     listBySldAndPage: (sldId: string, pageNumber: number): Promise<Annotation[]> =>
       ipcRenderer.invoke(IPC.annotationsListBySldAndPage, sldId, pageNumber),
+    listBySld: (sldId: string): Promise<Annotation[]> =>
+      ipcRenderer.invoke(IPC.annotationsListBySld, sldId),
     create: (input: CreateAnnotationInput): Promise<Annotation> =>
       ipcRenderer.invoke(IPC.annotationsCreate, input),
     delete: (id: string): Promise<void> => ipcRenderer.invoke(IPC.annotationsDelete, id)
