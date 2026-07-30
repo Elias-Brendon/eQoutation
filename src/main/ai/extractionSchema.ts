@@ -1,4 +1,36 @@
-import type { ExtractedComponent, ExtractionFlag } from '@shared/types/entities'
+import type { AnnotationBoundingBox, ExtractedComponent, ExtractionFlag } from '@shared/types/entities'
+
+const boundingBoxJsonSchema = {
+  anyOf: [
+    {
+      type: 'object',
+      properties: {
+        x: { type: 'number' },
+        y: { type: 'number' },
+        width: { type: 'number' },
+        height: { type: 'number' }
+      },
+      required: ['x', 'y', 'width', 'height'],
+      additionalProperties: false
+    },
+    { type: 'null' }
+  ],
+  description:
+    'Approximate bounding box around this item on its page, normalized 0-1 ' +
+    '(x/y = top-left corner, width/height as a fraction of the page). Null ' +
+    'if no specific region can be identified.'
+}
+
+function validateBoundingBox(value: unknown): AnnotationBoundingBox | null {
+  const box = value as Partial<AnnotationBoundingBox> | null | undefined
+  if (!box || typeof box !== 'object') return null
+  const { x, y, width, height } = box
+  const nums = [x, y, width, height]
+  if (nums.some((n) => typeof n !== 'number' || !Number.isFinite(n))) return null
+  if (x! < 0 || x! > 1 || y! < 0 || y! > 1) return null
+  if (width! <= 0 || width! > 1 || height! <= 0 || height! > 1) return null
+  return { x: x!, y: y!, width: width!, height: height! }
+}
 
 // JSON Schema passed as `output_config.format` on the Messages API — Claude's
 // response is constrained to match this shape exactly. `componentType` is
@@ -53,7 +85,8 @@ export function buildExtractionJsonSchema(
                 'Short remarks: incoming source, busbar/cable feed type+size (and whether ' +
                 'inferred vs. drawing-stated), spare status, or anything else ambiguous. ' +
                 'Empty if none.'
-            }
+            },
+            boundingBox: boundingBoxJsonSchema
           },
           required: [
             'description',
@@ -64,7 +97,8 @@ export function buildExtractionJsonSchema(
             'panelName',
             'componentType',
             'confidence',
-            'notes'
+            'notes',
+            'boundingBox'
           ],
           additionalProperties: false
         }
@@ -76,9 +110,10 @@ export function buildExtractionJsonSchema(
           properties: {
             pageNumber: { type: 'integer' },
             message: { type: 'string' },
-            severity: { type: 'string', enum: ['info', 'warning'] }
+            severity: { type: 'string', enum: ['info', 'warning'] },
+            boundingBox: boundingBoxJsonSchema
           },
-          required: ['pageNumber', 'message', 'severity'],
+          required: ['pageNumber', 'message', 'severity', 'boundingBox'],
           additionalProperties: false
         }
       }
@@ -110,12 +145,14 @@ export function normalizeExtractionPayload(parsed: unknown): RawExtractionPayloa
       panelName: String(c?.panelName ?? '').trim() || 'UNKNOWN',
       componentType: String(c?.componentType ?? ''),
       confidence: Math.min(1, Math.max(0, Number(c?.confidence) || 0)),
-      notes: String(c?.notes ?? '')
+      notes: String(c?.notes ?? ''),
+      boundingBox: validateBoundingBox(c?.boundingBox)
     })),
     flags: flags.map((f) => ({
       pageNumber: Number(f?.pageNumber) || 1,
       message: String(f?.message ?? ''),
-      severity: f?.severity === 'warning' ? 'warning' : 'info'
+      severity: f?.severity === 'warning' ? 'warning' : 'info',
+      boundingBox: validateBoundingBox(f?.boundingBox)
     }))
   }
 }
