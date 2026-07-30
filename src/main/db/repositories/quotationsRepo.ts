@@ -86,6 +86,7 @@ function toQuotation(row: QuotationRow, lines: QuotationLine[]): Quotation {
 }
 
 export interface QuotationLineInput {
+  id: string
   catalogItemId: string | null
   pageNumber: number
   panelName: string
@@ -147,7 +148,7 @@ export function createQuotationWithLines(
 
     for (const input of lineInputs) {
       insertLine.run({
-        id: randomUUID(),
+        id: input.id,
         quotation_id: quotationId,
         catalog_item_id: input.catalogItemId,
         page_number: input.pageNumber,
