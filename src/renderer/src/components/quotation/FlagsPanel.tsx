@@ -51,9 +51,18 @@ export function FlagsPanel({
   const lineForFlag = (flag: Flag): QuotationLine | undefined =>
     flag.quotationLineId ? lines.find((l) => l.id === flag.quotationLineId) : undefined
 
-  const handleResolve = (flag: Flag): void => {
+  const handleResolve = (
+    flag: Flag,
+    outcome?: { action: 'accepted' | 'corrected'; value: string }
+  ): void => {
     resolveFlag.mutate(
-      { id: flag.id, resolutionNote: resolutionNote.trim() || undefined, quotationId, projectId },
+      {
+        id: flag.id,
+        resolutionNote: resolutionNote.trim() || undefined,
+        outcome,
+        quotationId,
+        projectId
+      },
       {
         onSuccess: () => {
           setResolvingId(null)
@@ -115,7 +124,11 @@ export function FlagsPanel({
                 <div className="mt-2 space-y-2">
                   <Textarea
                     rows={2}
-                    placeholder="Resolution note (optional)…"
+                    placeholder={
+                      flag.origin === 'ai'
+                        ? 'Correction (required if the AI was wrong)…'
+                        : 'Resolution note (optional)…'
+                    }
                     value={resolutionNote}
                     onChange={(e) => setResolutionNote(e.target.value)}
                   />
@@ -123,9 +136,36 @@ export function FlagsPanel({
                     <Button variant="ghost" size="sm" onClick={() => setResolvingId(null)}>
                       Cancel
                     </Button>
-                    <Button variant="success" size="sm" onClick={() => handleResolve(flag)}>
-                      Confirm resolve
-                    </Button>
+                    {flag.origin === 'ai' ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleResolve(flag, { action: 'accepted', value: flag.message })
+                          }
+                        >
+                          Confirm as-is
+                        </Button>
+                        <Button
+                          variant="success"
+                          size="sm"
+                          disabled={resolutionNote.trim().length === 0}
+                          onClick={() =>
+                            handleResolve(flag, {
+                              action: 'corrected',
+                              value: resolutionNote.trim()
+                            })
+                          }
+                        >
+                          Add correction
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="success" size="sm" onClick={() => handleResolve(flag)}>
+                        Confirm resolve
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
