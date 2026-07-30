@@ -4,7 +4,8 @@ import type { FeedbackAction, FeedbackLogEntry } from '@shared/types/entities'
 
 interface FeedbackLogRow {
   id: string
-  quotation_line_id: string
+  quotation_line_id: string | null
+  flag_id: string | null
   field_changed: string
   ai_value: string
   human_value: string
@@ -17,6 +18,7 @@ function toFeedbackLogEntry(row: FeedbackLogRow): FeedbackLogEntry {
   return {
     id: row.id,
     quotationLineId: row.quotation_line_id,
+    flagId: row.flag_id,
     fieldChanged: row.field_changed,
     aiValue: row.ai_value,
     humanValue: row.human_value,
@@ -27,7 +29,8 @@ function toFeedbackLogEntry(row: FeedbackLogRow): FeedbackLogEntry {
 }
 
 export interface CreateFeedbackLogInput {
-  quotationLineId: string
+  quotationLineId?: string
+  flagId?: string
   fieldChanged: string
   aiValue: string
   humanValue: string
@@ -38,7 +41,8 @@ export interface CreateFeedbackLogInput {
 export function createFeedbackLog(input: CreateFeedbackLogInput): FeedbackLogEntry {
   const row: FeedbackLogRow = {
     id: randomUUID(),
-    quotation_line_id: input.quotationLineId,
+    quotation_line_id: input.quotationLineId ?? null,
+    flag_id: input.flagId ?? null,
     field_changed: input.fieldChanged,
     ai_value: input.aiValue,
     human_value: input.humanValue,
@@ -50,9 +54,9 @@ export function createFeedbackLog(input: CreateFeedbackLogInput): FeedbackLogEnt
   getDb()
     .prepare(
       `INSERT INTO feedback_log
-         (id, quotation_line_id, field_changed, ai_value, human_value, action, note, created_at)
+         (id, quotation_line_id, flag_id, field_changed, ai_value, human_value, action, note, created_at)
        VALUES
-         (@id, @quotation_line_id, @field_changed, @ai_value, @human_value, @action, @note, @created_at)`
+         (@id, @quotation_line_id, @flag_id, @field_changed, @ai_value, @human_value, @action, @note, @created_at)`
     )
     .run(row)
 
