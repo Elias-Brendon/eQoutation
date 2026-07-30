@@ -31,6 +31,14 @@ describe('migration runner', () => {
     expect(columnNames).toEqual(expect.arrayContaining(['linked_flag_id', 'resolved_at']))
   })
 
+  it('adds linked_quotation_line_id column to annotations', () => {
+    const db = getDb()
+    const columns = db.prepare('PRAGMA table_info(annotations)').all() as { name: string }[]
+    expect(columns.map((c) => c.name)).toEqual(
+      expect.arrayContaining(['linked_quotation_line_id'])
+    )
+  })
+
   it('makes feedback_log.quotation_line_id nullable and adds flag_id', () => {
     const db = getDb()
     const columns = db.prepare('PRAGMA table_info(feedback_log)').all() as {
