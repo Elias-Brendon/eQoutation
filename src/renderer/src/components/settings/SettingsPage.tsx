@@ -10,6 +10,7 @@ import { ApiKeysSection } from './sections/ApiKeysSection'
 import { MarginsSection } from './sections/MarginsSection'
 import { AccountSection } from './sections/AccountSection'
 import { FontSizeSection } from './sections/FontSizeSection'
+import { TrainingDataSection } from './sections/TrainingDataSection'
 import { UserManualSection } from './sections/UserManualSection'
 import type { AuthUser } from '@shared/types/entities'
 
@@ -23,6 +24,7 @@ type SectionId =
   | 'margins'
   | 'account'
   | 'fontSize'
+  | 'trainingData'
   | 'userManual'
 
 interface NavItem {
@@ -40,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'margins', label: 'Margins' },
   { id: 'account', label: 'Account' },
   { id: 'fontSize', label: 'Font Size' },
+  { id: 'trainingData', label: 'Training Data' },
   { id: 'userManual', label: 'User Manual' }
 ]
 
@@ -90,6 +93,7 @@ export function SettingsPage({
           {activeSection === 'margins' && <MarginsSection />}
           {activeSection === 'account' && <AccountSection user={user} onLogout={onLogout} />}
           {activeSection === 'fontSize' && <FontSizeSection />}
+          {activeSection === 'trainingData' && <TrainingDataSection />}
           {activeSection === 'userManual' && <UserManualSection />}
         </div>
       </div>
