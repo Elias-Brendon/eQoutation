@@ -135,8 +135,8 @@ export function CenterPanel({
                 </Button>
               )}
             </div>
-            <PdfViewer key={sld.id} sldId={sld.id} filename={sld.filename} focusPage={focusPage} />
-            <ExtractionPanel key={sld.id} sldId={sld.id} />
+            <PdfViewer key={`pdf-${sld.id}`} sldId={sld.id} filename={sld.filename} focusPage={focusPage} />
+            <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} />
           </div>
         ) : (
           <Rail side="left" label="PDF Diagram" onExpand={() => onPanelModeChange('split')} />
