@@ -31,7 +31,8 @@ function defaultSettings(): AppSettings {
     confidenceThreshold: 0.5,
     maxExtractionRetries: 0,
     defaultMargin: 1.35,
-    fontScale: 'md'
+    fontScale: 'md',
+    annotationFontSize: 12
   }
 }
 
@@ -57,7 +58,8 @@ export function getSettings(): AppSettings {
       confidenceThreshold: parsed.confidenceThreshold ?? defaults.confidenceThreshold,
       maxExtractionRetries: parsed.maxExtractionRetries ?? defaults.maxExtractionRetries,
       defaultMargin: parsed.defaultMargin ?? defaults.defaultMargin,
-      fontScale: parsed.fontScale ?? defaults.fontScale
+      fontScale: parsed.fontScale ?? defaults.fontScale,
+      annotationFontSize: parsed.annotationFontSize ?? defaults.annotationFontSize
     }
   } catch {
     return defaults

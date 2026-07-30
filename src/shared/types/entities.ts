@@ -64,6 +64,8 @@ export interface AppSettings {
   maxExtractionRetries: number
   defaultMargin: number
   fontScale: FontScale
+  /** Font size in px for the AI annotation info popup shown on the PDF diagram. */
+  annotationFontSize: number
 }
 
 export interface ChangePasswordInput {
