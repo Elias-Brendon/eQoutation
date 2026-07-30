@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, Sparkles } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import type { Annotation, AnnotationPoint, AnnotationShapeType } from '@shared/types/entities'
@@ -20,6 +20,7 @@ interface AnnotationCanvasProps {
   liveStrokeWidth: number
   onMarkerClick: (annotation: Annotation) => void
   highlightedAnnotationId: string | null
+  showAiAnnotations: boolean
 }
 
 export function AnnotationCanvas({
@@ -31,12 +32,14 @@ export function AnnotationCanvas({
   liveColor,
   liveStrokeWidth,
   onMarkerClick,
-  highlightedAnnotationId
+  highlightedAnnotationId,
+  showAiAnnotations
 }: AnnotationCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
   const renderWidth = Math.round(cssWidth * dpr)
   const renderHeight = Math.round(cssHeight * dpr)
+  const [infoOpenId, setInfoOpenId] = useState<string | null>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -117,11 +120,20 @@ export function AnnotationCanvas({
     dpr
   ])
 
+  useEffect(() => {
+    if (!infoOpenId) return
+    const handleClickAway = (): void => setInfoOpenId(null)
+    window.addEventListener('click', handleClickAway)
+    return () => window.removeEventListener('click', handleClickAway)
+  }, [infoOpenId])
+
   const pins = annotations.filter((a) => a.shapeType === 'pin' && a.points.length > 0)
   const texts = annotations.filter((a) => a.shapeType === 'text' && a.points.length > 0)
-  const aiBoxes = annotations.filter(
-    (a) => a.authorType === 'ai' && a.shapeType === 'rectangle' && a.points.length === 2
-  )
+  const aiBoxes = showAiAnnotations
+    ? annotations.filter(
+        (a) => a.authorType === 'ai' && a.shapeType === 'rectangle' && a.points.length === 2
+      )
+    : []
 
   return (
     <div
@@ -166,32 +178,40 @@ export function AnnotationCanvas({
         const top = Math.min(a.y, b.y) * 100
         const width = Math.abs(b.x - a.x) * 100
         const height = Math.abs(b.y - a.y) * 100
+        const isInfoOpen = infoOpenId === box.id
         return (
-          <button
+          <div
             key={box.id}
-            onClick={(e) => {
-              e.stopPropagation()
-              onMarkerClick(box)
-            }}
-            className={cn(
-              'pointer-events-auto absolute rounded-sm border-2 bg-transparent',
-              box.resolvedAt !== null && 'opacity-50',
-              box.id === highlightedAnnotationId && 'ai-annotation-highlight'
-            )}
-            style={{
-              left: `${left}%`,
-              top: `${top}%`,
-              width: `${width}%`,
-              height: `${height}%`,
-              borderColor: box.color
-            }}
-            title={box.commentText ?? ''}
+            className="pointer-events-none absolute"
+            style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
           >
-            <Sparkles
-              className="absolute -left-1 -top-1 h-3 w-3 rounded-full p-0.5"
-              style={{ backgroundColor: box.color, color: 'white' }}
-            />
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onMarkerClick(box)
+                setInfoOpenId((prev) => (prev === box.id ? null : box.id))
+              }}
+              className={cn(
+                'pointer-events-auto absolute inset-0 rounded-sm bg-transparent',
+                box.resolvedAt !== null && 'opacity-50',
+                box.id === highlightedAnnotationId && 'ai-annotation-highlight'
+              )}
+              style={{ border: `1px solid ${box.color}`, boxShadow: '0 0 0 1px rgba(0,0,0,0.35)' }}
+            >
+              <Sparkles
+                className="absolute -left-1 -top-1 h-2 w-2 rounded-full p-px"
+                style={{ backgroundColor: box.color, color: 'white' }}
+              />
+            </button>
+            {isInfoOpen && (
+              <div
+                className="pointer-events-auto absolute left-0 top-full z-10 mt-1 max-w-[16rem] rounded-md border border-border-strong bg-surface-raised px-2 py-1.5 text-xs text-text-primary shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {box.commentText}
+              </div>
+            )}
+          </div>
         )
       })}
       {texts.map((text) => (
