@@ -31,6 +31,27 @@ describe('migration runner', () => {
     expect(columnNames).toEqual(expect.arrayContaining(['linked_flag_id', 'resolved_at']))
   })
 
+  it('makes feedback_log.quotation_line_id nullable and adds flag_id', () => {
+    const db = getDb()
+    const columns = db.prepare('PRAGMA table_info(feedback_log)').all() as {
+      name: string
+      notnull: number
+    }[]
+    const quotationLineIdCol = columns.find((c) => c.name === 'quotation_line_id')
+    expect(quotationLineIdCol?.notnull).toBe(0)
+    expect(columns.map((c) => c.name)).toEqual(expect.arrayContaining(['flag_id']))
+  })
+
+  it('accepts a feedback_log row with a null quotation_line_id and a flag_id', () => {
+    const db = getDb()
+    db.prepare(
+      `INSERT INTO feedback_log (id, quotation_line_id, flag_id, field_changed, ai_value, human_value, action, note, created_at)
+       VALUES ('fb-1', NULL, NULL, 'annotation', 'a', 'b', 'accepted', NULL, '2026-01-01T00:00:00.000Z')`
+    ).run()
+    const row = db.prepare('SELECT * FROM feedback_log WHERE id = ?').get('fb-1')
+    expect(row).toBeTruthy()
+  })
+
   it('creates the catalog_items table with the columns replaceCatalogItems expects', () => {
     const db = getDb()
     const columns = db.prepare('PRAGMA table_info(catalog_items)').all() as { name: string }[]

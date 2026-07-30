@@ -18,6 +18,7 @@ import { sql as m0017 } from './0017_quotation_line_component_type'
 import { sql as m0018 } from './0018_catalog_items_sku_unique'
 import { sql as m0019 } from './0019_extraction_token_usage'
 import { sql as m0020 } from './0020_annotation_ai_metadata'
+import { sql as m0021 } from './0021_feedback_log_flag_support'
 
 export interface Migration {
   version: number
@@ -45,5 +46,6 @@ export const migrations: Migration[] = [
   { version: 17, name: '0017_quotation_line_component_type', sql: m0017 },
   { version: 18, name: '0018_catalog_items_sku_unique', sql: m0018 },
   { version: 19, name: '0019_extraction_token_usage', sql: m0019 },
-  { version: 20, name: '0020_annotation_ai_metadata', sql: m0020 }
+  { version: 20, name: '0020_annotation_ai_metadata', sql: m0020 },
+  { version: 21, name: '0021_feedback_log_flag_support', sql: m0021 }
 ]
