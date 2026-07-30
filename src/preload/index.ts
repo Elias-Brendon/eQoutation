@@ -181,7 +181,8 @@ const api = {
   },
   export: {
     project: (projectId: string): Promise<string | null> =>
-      ipcRenderer.invoke(IPC.exportProject, projectId)
+      ipcRenderer.invoke(IPC.exportProject, projectId),
+    trainingData: (): Promise<string | null> => ipcRenderer.invoke(IPC.exportTrainingData)
   }
 }
 

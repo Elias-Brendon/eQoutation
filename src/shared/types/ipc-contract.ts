@@ -55,5 +55,6 @@ export const IPC = {
   flagsAddCatalogItemAndLink: 'flags:addCatalogItemAndLink',
   feedbackResolveLine: 'feedback:resolveLine',
   feedbackListByLine: 'feedback:listByLine',
-  exportProject: 'export:project'
+  exportProject: 'export:project',
+  exportTrainingData: 'export:trainingData'
 } as const
