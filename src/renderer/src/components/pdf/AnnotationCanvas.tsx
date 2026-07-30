@@ -129,11 +129,13 @@ export function AnnotationCanvas({
 
   const pins = annotations.filter((a) => a.shapeType === 'pin' && a.points.length > 0)
   const texts = annotations.filter((a) => a.shapeType === 'text' && a.points.length > 0)
-  const aiBoxes = showAiAnnotations
-    ? annotations.filter(
-        (a) => a.authorType === 'ai' && a.shapeType === 'rectangle' && a.points.length === 2
-      )
-    : []
+  const aiBoxes = annotations.filter(
+    (a) =>
+      a.authorType === 'ai' &&
+      a.shapeType === 'rectangle' &&
+      a.points.length === 2 &&
+      (showAiAnnotations || a.id === highlightedAnnotationId)
+  )
 
   return (
     <div
