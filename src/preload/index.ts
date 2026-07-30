@@ -151,8 +151,11 @@ const api = {
     countOpenByProject: (projectId: string): Promise<FlagOriginCounts> =>
       ipcRenderer.invoke(IPC.flagsCountOpenByProject, projectId),
     raise: (input: RaiseFlagInput): Promise<Flag> => ipcRenderer.invoke(IPC.flagsRaise, input),
-    resolve: (id: string, resolutionNote?: string): Promise<void> =>
-      ipcRenderer.invoke(IPC.flagsResolve, id, resolutionNote),
+    resolve: (
+      id: string,
+      resolutionNote?: string,
+      outcome?: { action: 'accepted' | 'corrected'; value: string }
+    ): Promise<void> => ipcRenderer.invoke(IPC.flagsResolve, id, resolutionNote, outcome),
     resolveUnmatchedLine: (flagId: string): Promise<ResolveUnmatchedLineResult> =>
       ipcRenderer.invoke(IPC.flagsResolveUnmatchedLine, flagId),
     linkLineToCatalogItem: (

@@ -7,6 +7,8 @@ import {
 } from '../db/repositories/flagsRepo'
 import { getQuotationLineById, applyLineMatch } from '../db/repositories/quotationsRepo'
 import { getAllCatalogItems, getCatalogItemById } from '../db/repositories/catalogRepo'
+import { createFeedbackLog } from '../db/repositories/feedbackLogRepo'
+import { resolveAiAnnotation } from '../db/repositories/annotationsRepo'
 import { addCatalogItem } from '../catalog/catalogWriter'
 import { matchComponent } from '../quotation/catalogMatcher'
 import { getSettings } from '../settings/settingsStore'
@@ -34,8 +36,31 @@ export function registerFlagsIpc(): void {
 
   safeHandle(IPC.flagsRaise, (_event, input: RaiseFlagInput): Flag => raiseHumanFlag(input))
 
-  safeHandle(IPC.flagsResolve, (_event, id: string, resolutionNote?: string): void =>
-    resolveFlag(id, resolutionNote)
+  safeHandle(
+    IPC.flagsResolve,
+    (
+      _event,
+      id: string,
+      resolutionNote?: string,
+      outcome?: { action: 'accepted' | 'corrected'; value: string }
+    ): void => {
+      const flag = getFlagById(id)
+      if (!flag) throw new AppError('DB_FLAG_NOT_FOUND')
+
+      resolveFlag(id, resolutionNote)
+
+      if (flag.origin === 'ai' && outcome) {
+        createFeedbackLog({
+          flagId: id,
+          fieldChanged: 'annotation',
+          aiValue: flag.message,
+          humanValue: outcome.value,
+          action: outcome.action,
+          note: resolutionNote
+        })
+      }
+      resolveAiAnnotation(id)
+    }
   )
 
   safeHandle(
