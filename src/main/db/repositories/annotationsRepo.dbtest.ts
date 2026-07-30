@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { closeDb, getDb } from '../index'
 import { createFlags } from './flagsRepo'
 import {
+  AI_ANNOTATION_COLOR_PALETTE,
   createAiAnnotation,
   createAiAnnotationsForFlags,
   listAnnotationsBySld,
@@ -51,7 +52,7 @@ describe('stackedFallbackBox', () => {
 })
 
 describe('createAiAnnotation', () => {
-  it('creates an ai-authored rectangle linked to a flag, using the theme accent color', () => {
+  it('creates an ai-authored rectangle linked to a flag, using a palette color', () => {
     const { sldId, quotationId } = createProjectSldQuotation()
     const [flag] = createFlags(quotationId, [
       { origin: 'ai', message: 'Check this MCCB rating', pageNumber: 2 }
@@ -62,12 +63,13 @@ describe('createAiAnnotation', () => {
       pageNumber: 2,
       commentText: flag.message,
       linkedFlagId: flag.id,
-      boundingBox: { x: 0.4, y: 0.3, width: 0.1, height: 0.05 }
+      boundingBox: { x: 0.4, y: 0.3, width: 0.1, height: 0.05 },
+      colorIndex: 0
     })
 
     expect(annotation.authorType).toBe('ai')
     expect(annotation.shapeType).toBe('rectangle')
-    expect(annotation.color).toBe('var(--color-accent)')
+    expect(AI_ANNOTATION_COLOR_PALETTE).toContain(annotation.color)
     expect(annotation.linkedFlagId).toBe(flag.id)
     expect(annotation.resolvedAt).toBeNull()
     expect(annotation.points).toEqual([
@@ -86,7 +88,8 @@ describe('createAiAnnotation', () => {
       commentText: flag.message,
       linkedFlagId: flag.id,
       boundingBox: null,
-      fallbackIndexOnPage: 0
+      fallbackIndexOnPage: 0,
+      colorIndex: 0
     })
 
     expect(annotation.points).toHaveLength(2)
@@ -125,6 +128,22 @@ describe('createAiAnnotationsForFlags', () => {
 
     expect(listAnnotationsBySld(sldId)).toHaveLength(0)
   })
+
+  it('cycles through the color palette so consecutive annotations differ', () => {
+    const { sldId, quotationId } = createProjectSldQuotation()
+    const flags = createFlags(quotationId, [
+      { origin: 'ai', message: 'a', pageNumber: 1 },
+      { origin: 'ai', message: 'b', pageNumber: 1 },
+      { origin: 'ai', message: 'c', pageNumber: 1 }
+    ])
+
+    createAiAnnotationsForFlags(sldId, flags, [null, null, null])
+
+    const annotations = listAnnotationsBySld(sldId)
+    const colors = annotations.map((a) => a.color)
+    expect(colors[0]).not.toBe(colors[1])
+    expect(colors[1]).not.toBe(colors[2])
+  })
 })
 
 describe('resolveAiAnnotation', () => {
@@ -136,7 +155,8 @@ describe('resolveAiAnnotation', () => {
       pageNumber: 1,
       commentText: flag.message,
       linkedFlagId: flag.id,
-      boundingBox: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 }
+      boundingBox: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+      colorIndex: 0
     })
 
     resolveAiAnnotation(flag.id)

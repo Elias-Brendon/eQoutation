@@ -23,7 +23,14 @@ interface AnnotationRow {
   resolved_at: string | null
 }
 
-const AI_ANNOTATION_COLOR = 'var(--color-accent)'
+export const AI_ANNOTATION_COLOR_PALETTE = [
+  'var(--color-accent)',
+  'var(--color-info)',
+  'var(--color-success)',
+  'var(--color-warning)',
+  'var(--color-danger)',
+  '#a855f7'
+] as const
 const AI_BOX_ANCHOR_X = 0.03
 const AI_BOX_BASE_Y = 0.05
 const AI_BOX_STACK_STEP_Y = 0.06
@@ -115,6 +122,8 @@ export interface CreateAiAnnotationInput {
   boundingBox: AnnotationBoundingBox | null
   /** Only used when boundingBox is null, to stack the fallback box. Defaults to 0. */
   fallbackIndexOnPage?: number
+  /** Cycles through AI_ANNOTATION_COLOR_PALETTE so nearby boxes are visually distinct. */
+  colorIndex: number
 }
 
 export function createAiAnnotation(input: CreateAiAnnotationInput): Annotation {
@@ -135,7 +144,7 @@ export function createAiAnnotation(input: CreateAiAnnotationInput): Annotation {
     author_type: 'ai',
     shape_type: 'rectangle',
     path_data: JSON.stringify(corners),
-    color: AI_ANNOTATION_COLOR,
+    color: AI_ANNOTATION_COLOR_PALETTE[input.colorIndex % AI_ANNOTATION_COLOR_PALETTE.length],
     stroke_width: 2,
     comment_text: input.commentText,
     created_at: new Date().toISOString(),
@@ -165,6 +174,7 @@ export function createAiAnnotationsForFlags(
   boundingBoxes: (AnnotationBoundingBox | null)[]
 ): void {
   const fallbackCountByPage = new Map<number, number>()
+  let colorIndex = 0
   flags.forEach((flag, i) => {
     if (flag.origin !== 'ai' || flag.pageNumber === null) return
     const boundingBox = boundingBoxes[i] ?? null
@@ -180,7 +190,8 @@ export function createAiAnnotationsForFlags(
         commentText: flag.message,
         linkedFlagId: flag.id,
         boundingBox,
-        fallbackIndexOnPage
+        fallbackIndexOnPage,
+        colorIndex: colorIndex++
       })
     } catch (err) {
       console.error('[annotationsRepo] failed to create AI annotation for flag', flag.id, err)
