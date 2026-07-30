@@ -31,6 +31,7 @@ function extractedComponent(overrides: Partial<ExtractedComponent> = {}): Extrac
     componentType: 'MCB',
     confidence: 0.9,
     notes: '',
+    boundingBox: null,
     ...overrides
   }
 }

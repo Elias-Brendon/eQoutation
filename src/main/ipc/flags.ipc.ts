@@ -85,7 +85,8 @@ export function registerFlagsIpc(): void {
           panelName: line.panelName,
           componentType: line.componentType,
           confidence: 0,
-          notes: ''
+          notes: '',
+          boundingBox: null
         },
         catalogItems,
         resolveEffectivePreferredBrands(line.componentType, { preferredBrands, preferredBrandsByType })

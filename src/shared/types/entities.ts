@@ -319,6 +319,13 @@ export interface FeedbackResolveLineInput {
 export type ExtractionStatus = 'running' | 'done' | 'error'
 export type ExtractionFlagSeverity = 'info' | 'warning'
 
+export interface AnnotationBoundingBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface ExtractedComponent {
   description: string
   qty: number
@@ -330,12 +337,14 @@ export interface ExtractedComponent {
   componentType: string
   confidence: number
   notes: string
+  boundingBox: AnnotationBoundingBox | null
 }
 
 export interface ExtractionFlag {
   pageNumber: number
   message: string
   severity: ExtractionFlagSeverity
+  boundingBox: AnnotationBoundingBox | null
 }
 
 export interface Extraction {
