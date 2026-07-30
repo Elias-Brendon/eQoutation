@@ -542,6 +542,9 @@ export function PdfViewer({ sldId, filename, focusPage }: PdfViewerProps): React
   }, [tool, liveShape === null])
 
   const handleMarkerClick = (annotation: Annotation): void => {
+    // AI-authored pins are a permanent record (see design spec) — no delete,
+    // no confirm dialog. The hover title already shows the flag message.
+    if (annotation.authorType === 'ai') return
     const label = annotation.commentText ?? 'this annotation'
     const shouldDelete = window.confirm(`${label}\n\nDelete this comment?`)
     if (!shouldDelete) return

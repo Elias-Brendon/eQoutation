@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Sparkles } from 'lucide-react'
+import { cn } from '@renderer/lib/cn'
 import type { Annotation, AnnotationPoint, AnnotationShapeType } from '@shared/types/entities'
 
 const MAX_DEVICE_PIXEL_RATIO = 2
@@ -135,7 +136,10 @@ export function AnnotationCanvas({
             e.stopPropagation()
             onMarkerClick(pin)
           }}
-          className="pointer-events-auto absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 shadow"
+          className={cn(
+            'pointer-events-auto absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 shadow',
+            pin.authorType === 'ai' && pin.resolvedAt !== null && 'opacity-50'
+          )}
           style={{
             left: `${pin.points[0].x * 100}%`,
             top: `${pin.points[0].y * 100}%`,
@@ -143,7 +147,11 @@ export function AnnotationCanvas({
           }}
           title={pin.commentText ?? ''}
         >
-          <MessageCircle className="h-3 w-3 text-white" />
+          {pin.authorType === 'ai' ? (
+            <Sparkles className="h-3 w-3 text-white" />
+          ) : (
+            <MessageCircle className="h-3 w-3 text-white" />
+          )}
         </button>
       ))}
       {texts.map((text) => (
