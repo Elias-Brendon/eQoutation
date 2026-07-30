@@ -229,6 +229,8 @@ export interface Annotation {
   strokeWidth: number
   commentText: string | null
   createdAt: string
+  linkedFlagId: string | null
+  resolvedAt: string | null
 }
 
 export interface CreateAnnotationInput {
@@ -291,7 +293,8 @@ export type FeedbackAction = 'accepted' | 'corrected' | 'flagged_for_later'
 
 export interface FeedbackLogEntry {
   id: string
-  quotationLineId: string
+  quotationLineId: string | null
+  flagId: string | null
   fieldChanged: string
   aiValue: string
   humanValue: string
