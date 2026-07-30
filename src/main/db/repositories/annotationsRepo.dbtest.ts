@@ -6,6 +6,7 @@ import {
   AI_ANNOTATION_COLOR_PALETTE,
   createAiAnnotation,
   createAiAnnotationsForFlags,
+  createAiAnnotationsForLines,
   listAnnotationsBySld,
   resolveAiAnnotation,
   stackedFallbackBox
@@ -41,6 +42,22 @@ function createProjectSldQuotation(): { sldId: string; quotationId: string } {
   return { sldId, quotationId }
 }
 
+function createProjectSldQuotationLine(): { sldId: string; quotationId: string; lineId: string } {
+  const { sldId, quotationId } = createProjectSldQuotation()
+  const now = new Date().toISOString()
+  const lineId = randomUUID()
+  getDb()
+    .prepare(
+      `INSERT INTO quotation_lines
+         (id, quotation_id, catalog_item_id, page_number, tag, description, maker, qty, uom,
+          list_price, discount_factor, unit_cost, total_cost, margin, quote_price, match_status, match_confidence,
+          ai_confidence, panel_name, sku, component_type, created_at)
+       VALUES (?, ?, NULL, 1, '', 'desc', '', 1, 'PC', 0, 1, 0, 0, 1, 0, 'matched', 1, 1, '', '', '', ?)`
+    )
+    .run(lineId, quotationId, now)
+  return { sldId, quotationId, lineId }
+}
+
 describe('stackedFallbackBox', () => {
   it('stacks fallback anchors downward with a fixed x anchor', () => {
     const anchor0 = stackedFallbackBox(0)
@@ -63,6 +80,7 @@ describe('createAiAnnotation', () => {
       pageNumber: 2,
       commentText: flag.message,
       linkedFlagId: flag.id,
+      linkedQuotationLineId: null,
       boundingBox: { x: 0.4, y: 0.3, width: 0.1, height: 0.05 },
       colorIndex: 0
     })
@@ -87,6 +105,7 @@ describe('createAiAnnotation', () => {
       pageNumber: 1,
       commentText: flag.message,
       linkedFlagId: flag.id,
+      linkedQuotationLineId: null,
       boundingBox: null,
       fallbackIndexOnPage: 0,
       colorIndex: 0
@@ -146,6 +165,54 @@ describe('createAiAnnotationsForFlags', () => {
   })
 })
 
+describe('createAiAnnotationsForLines', () => {
+  it('creates one annotation per line, using the flag message when one is linked', () => {
+    const { sldId, quotationId, lineId } = createProjectSldQuotationLine()
+    const [flag] = createFlags(quotationId, [
+      {
+        origin: 'ai',
+        message: 'Low-confidence extraction: "X"',
+        pageNumber: 1,
+        quotationLineId: lineId
+      }
+    ])
+
+    createAiAnnotationsForLines(sldId, [
+      {
+        lineId,
+        pageNumber: 1,
+        boundingBox: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+        commentText: flag.message,
+        linkedFlagId: flag.id
+      }
+    ])
+
+    const [annotation] = listAnnotationsBySld(sldId)
+    expect(annotation.linkedQuotationLineId).toBe(lineId)
+    expect(annotation.linkedFlagId).toBe(flag.id)
+    expect(annotation.commentText).toBe(flag.message)
+  })
+
+  it('creates an unflagged annotation with no linked_flag_id for a plain line', () => {
+    const { sldId, lineId } = createProjectSldQuotationLine()
+
+    createAiAnnotationsForLines(sldId, [
+      {
+        lineId,
+        pageNumber: 1,
+        boundingBox: null,
+        commentText: 'Some MCB — 1 nos, AI confidence 92%',
+        linkedFlagId: null
+      }
+    ])
+
+    const [annotation] = listAnnotationsBySld(sldId)
+    expect(annotation.linkedQuotationLineId).toBe(lineId)
+    expect(annotation.linkedFlagId).toBeNull()
+    expect(annotation.resolvedAt).toBeNull()
+  })
+})
+
 describe('resolveAiAnnotation', () => {
   it('sets resolved_at on the annotation linked to a flag', () => {
     const { sldId, quotationId } = createProjectSldQuotation()
@@ -155,6 +222,7 @@ describe('resolveAiAnnotation', () => {
       pageNumber: 1,
       commentText: flag.message,
       linkedFlagId: flag.id,
+      linkedQuotationLineId: null,
       boundingBox: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
       colorIndex: 0
     })

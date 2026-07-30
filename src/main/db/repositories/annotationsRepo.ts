@@ -20,6 +20,7 @@ interface AnnotationRow {
   comment_text: string | null
   created_at: string
   linked_flag_id: string | null
+  linked_quotation_line_id: string | null
   resolved_at: string | null
 }
 
@@ -50,6 +51,7 @@ function toAnnotation(row: AnnotationRow): Annotation {
     commentText: row.comment_text,
     createdAt: row.created_at,
     linkedFlagId: row.linked_flag_id,
+    linkedQuotationLineId: row.linked_quotation_line_id,
     resolvedAt: row.resolved_at
   }
 }
@@ -83,13 +85,14 @@ export function insertAnnotation(input: CreateAnnotationInput): Annotation {
     comment_text: input.commentText ?? null,
     created_at: new Date().toISOString(),
     linked_flag_id: null,
+    linked_quotation_line_id: null,
     resolved_at: null
   }
 
   getDb()
     .prepare(
-      `INSERT INTO annotations (id, sld_id, page_number, author_type, shape_type, path_data, color, stroke_width, comment_text, created_at, linked_flag_id, resolved_at)
-       VALUES (@id, @sld_id, @page_number, @author_type, @shape_type, @path_data, @color, @stroke_width, @comment_text, @created_at, @linked_flag_id, @resolved_at)`
+      `INSERT INTO annotations (id, sld_id, page_number, author_type, shape_type, path_data, color, stroke_width, comment_text, created_at, linked_flag_id, linked_quotation_line_id, resolved_at)
+       VALUES (@id, @sld_id, @page_number, @author_type, @shape_type, @path_data, @color, @stroke_width, @comment_text, @created_at, @linked_flag_id, @linked_quotation_line_id, @resolved_at)`
     )
     .run(row)
 
@@ -118,7 +121,8 @@ export interface CreateAiAnnotationInput {
   sldId: string
   pageNumber: number
   commentText: string
-  linkedFlagId: string
+  linkedFlagId: string | null
+  linkedQuotationLineId: string | null
   boundingBox: AnnotationBoundingBox | null
   /** Only used when boundingBox is null, to stack the fallback box. Defaults to 0. */
   fallbackIndexOnPage?: number
@@ -149,13 +153,14 @@ export function createAiAnnotation(input: CreateAiAnnotationInput): Annotation {
     comment_text: input.commentText,
     created_at: new Date().toISOString(),
     linked_flag_id: input.linkedFlagId,
+    linked_quotation_line_id: input.linkedQuotationLineId,
     resolved_at: null
   }
 
   getDb()
     .prepare(
-      `INSERT INTO annotations (id, sld_id, page_number, author_type, shape_type, path_data, color, stroke_width, comment_text, created_at, linked_flag_id, resolved_at)
-       VALUES (@id, @sld_id, @page_number, @author_type, @shape_type, @path_data, @color, @stroke_width, @comment_text, @created_at, @linked_flag_id, @resolved_at)`
+      `INSERT INTO annotations (id, sld_id, page_number, author_type, shape_type, path_data, color, stroke_width, comment_text, created_at, linked_flag_id, linked_quotation_line_id, resolved_at)
+       VALUES (@id, @sld_id, @page_number, @author_type, @shape_type, @path_data, @color, @stroke_width, @comment_text, @created_at, @linked_flag_id, @linked_quotation_line_id, @resolved_at)`
     )
     .run(row)
 
@@ -189,6 +194,7 @@ export function createAiAnnotationsForFlags(
         pageNumber: flag.pageNumber,
         commentText: flag.message,
         linkedFlagId: flag.id,
+        linkedQuotationLineId: null,
         boundingBox,
         fallbackIndexOnPage,
         colorIndex: colorIndex++
@@ -197,6 +203,46 @@ export function createAiAnnotationsForFlags(
       console.error('[annotationsRepo] failed to create AI annotation for flag', flag.id, err)
     }
   })
+}
+
+export interface LineAnnotationInput {
+  lineId: string
+  pageNumber: number
+  boundingBox: AnnotationBoundingBox | null
+  commentText: string
+  linkedFlagId: string | null
+}
+
+// Called right after quotation generation, once per quotation line — every
+// extracted component gets exactly one annotation (unlike
+// createAiAnnotationsForFlags, which only covers flagged items). A line that
+// also has an AI flag gets that flag's message and linked_flag_id (so
+// resolving it still dims the box); otherwise the box is a plain, permanent
+// record of what the AI extracted there.
+export function createAiAnnotationsForLines(sldId: string, inputs: LineAnnotationInput[]): void {
+  const fallbackCountByPage = new Map<number, number>()
+  let colorIndex = 0
+  for (const input of inputs) {
+    let fallbackIndexOnPage: number | undefined
+    if (!input.boundingBox) {
+      fallbackIndexOnPage = fallbackCountByPage.get(input.pageNumber) ?? 0
+      fallbackCountByPage.set(input.pageNumber, fallbackIndexOnPage + 1)
+    }
+    try {
+      createAiAnnotation({
+        sldId,
+        pageNumber: input.pageNumber,
+        commentText: input.commentText,
+        linkedFlagId: input.linkedFlagId,
+        linkedQuotationLineId: input.lineId,
+        boundingBox: input.boundingBox,
+        fallbackIndexOnPage,
+        colorIndex: colorIndex++
+      })
+    } catch (err) {
+      console.error('[annotationsRepo] failed to create AI annotation for line', input.lineId, err)
+    }
+  }
 }
 
 // Marks the pin resolved rather than deleting it — the point is a permanent
