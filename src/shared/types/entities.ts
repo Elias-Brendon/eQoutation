@@ -230,6 +230,7 @@ export interface Annotation {
   commentText: string | null
   createdAt: string
   linkedFlagId: string | null
+  linkedQuotationLineId: string | null
   resolvedAt: string | null
 }
 
