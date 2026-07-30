@@ -27,6 +27,7 @@ import {
   useRejectQuotation
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
+import { useAnnotationsBySld } from '@renderer/state/queries/useAnnotations'
 import type { PanelMode, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
@@ -73,11 +74,26 @@ export function CenterPanel({
   const [modalMode, setModalMode] = useState<QuotationActionMode | null>(null)
   const [flagsPanelOpen, setFlagsPanelOpen] = useState(false)
   const [focusPage, setFocusPage] = useState<number | undefined>(undefined)
+  const { data: sldAnnotations = [] } = useAnnotationsBySld(sld?.id ?? null)
+  const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null)
 
   // Cross-reference target is per-SLD, not persisted across selection changes.
   useEffect(() => {
     setFocusPage(undefined)
   }, [sld?.id])
+
+  const handleFocusFlag = (flagId: string): void => {
+    const annotation = sldAnnotations.find((a) => a.linkedFlagId === flagId)
+    if (!annotation) return
+    setFocusPage(annotation.pageNumber)
+    setHighlightedAnnotationId(annotation.id)
+  }
+
+  useEffect(() => {
+    if (!highlightedAnnotationId) return
+    const timeout = setTimeout(() => setHighlightedAnnotationId(null), 2500)
+    return () => clearTimeout(timeout)
+  }, [highlightedAnnotationId])
 
   const openFlagCount = flags.filter((f) => f.status === 'open').length
   const isReviewSubmitting =
@@ -135,7 +151,13 @@ export function CenterPanel({
                 </Button>
               )}
             </div>
-            <PdfViewer key={`pdf-${sld.id}`} sldId={sld.id} filename={sld.filename} focusPage={focusPage} />
+            <PdfViewer
+              key={`pdf-${sld.id}`}
+              sldId={sld.id}
+              filename={sld.filename}
+              focusPage={focusPage}
+              highlightedAnnotationId={highlightedAnnotationId}
+            />
             <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} />
           </div>
         ) : (
@@ -245,6 +267,7 @@ export function CenterPanel({
             sldId={sld.id}
             projectId={sld.projectId}
             lines={quotation.lines}
+            onFocusFlag={handleFocusFlag}
           />
         </>
       )}
