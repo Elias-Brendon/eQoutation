@@ -18,7 +18,11 @@ import {
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
 import { createFlags, type CreateFlagInput } from '../db/repositories/flagsRepo'
-import { createAiAnnotationsForFlags } from '../db/repositories/annotationsRepo'
+import {
+  createAiAnnotationsForFlags,
+  createAiAnnotationsForLines,
+  type LineAnnotationInput
+} from '../db/repositories/annotationsRepo'
 import { addComment, listComments } from '../db/repositories/quotationCommentsRepo'
 import { matchComponent } from '../quotation/catalogMatcher'
 import {
@@ -95,46 +99,64 @@ export function registerQuotationsIpc(): void {
       lineInputs
     )
 
-    const flagInputs: CreateFlagInput[] = []
-    const flagBoundingBoxes: (AnnotationBoundingBox | null)[] = []
+    const perLineFlagInputs: CreateFlagInput[] = []
     for (let i = 0; i < lineInputs.length; i++) {
       const lineInput = lineInputs[i]
-      const component = extraction.components[i]
       if (lineInput.matchStatus === 'unknown') {
-        flagInputs.push({
+        perLineFlagInputs.push({
           quotationLineId: lineInput.id,
           origin: 'matcher',
           severity: 'warning',
           message: `Unmatched item: "${lineInput.description}" (page ${lineInput.pageNumber}) — no catalog match found.`,
           pageNumber: lineInput.pageNumber
         })
-        flagBoundingBoxes.push(null)
       }
       if (lineInput.aiConfidence < confidenceThreshold) {
-        flagInputs.push({
+        perLineFlagInputs.push({
           quotationLineId: lineInput.id,
           origin: 'ai',
           severity: 'warning',
           message: `Low-confidence extraction: "${lineInput.description}" (page ${lineInput.pageNumber}) — AI confidence ${(lineInput.aiConfidence * 100).toFixed(0)}%.`,
           pageNumber: lineInput.pageNumber
         })
-        flagBoundingBoxes.push(component.boundingBox)
       }
     }
+    const perLineCreatedFlags =
+      perLineFlagInputs.length > 0 ? createFlags(quotation.id, perLineFlagInputs) : []
+
+    const rawFlagInputs: CreateFlagInput[] = []
+    const rawBoundingBoxes: (AnnotationBoundingBox | null)[] = []
     for (const flag of extraction.flags) {
-      flagInputs.push({
+      rawFlagInputs.push({
         quotationLineId: null,
         origin: 'ai',
         severity: flag.severity,
         message: flag.message,
         pageNumber: flag.pageNumber
       })
-      flagBoundingBoxes.push(flag.boundingBox)
+      rawBoundingBoxes.push(flag.boundingBox)
     }
-    if (flagInputs.length > 0) {
-      const createdFlags = createFlags(quotation.id, flagInputs)
-      createAiAnnotationsForFlags(sldId, createdFlags, flagBoundingBoxes)
+    if (rawFlagInputs.length > 0) {
+      const rawCreatedFlags = createFlags(quotation.id, rawFlagInputs)
+      createAiAnnotationsForFlags(sldId, rawCreatedFlags, rawBoundingBoxes)
     }
+
+    const lineAnnotationInputs: LineAnnotationInput[] = lineInputs.map((lineInput, i) => {
+      const component = extraction.components[i]
+      const aiFlagForLine = perLineCreatedFlags.find(
+        (f) => f.origin === 'ai' && f.quotationLineId === lineInput.id
+      )
+      return {
+        lineId: lineInput.id,
+        pageNumber: lineInput.pageNumber,
+        boundingBox: component.boundingBox,
+        commentText:
+          aiFlagForLine?.message ??
+          `${lineInput.description} — ${lineInput.qty} ${lineInput.uom}, AI confidence ${(lineInput.aiConfidence * 100).toFixed(0)}%.`,
+        linkedFlagId: aiFlagForLine?.id ?? null
+      }
+    })
+    createAiAnnotationsForLines(sldId, lineAnnotationInputs)
 
     return quotation
   })
