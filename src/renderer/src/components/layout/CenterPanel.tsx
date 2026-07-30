@@ -28,6 +28,7 @@ import {
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 import { useAnnotationsBySld } from '@renderer/state/queries/useAnnotations'
+import { useSettings } from '@renderer/state/queries/useSettings'
 import type { Annotation, PanelMode, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
@@ -65,6 +66,7 @@ export function CenterPanel({
   onPanelModeChange
 }: CenterPanelProps): React.JSX.Element {
   const { data: quotation } = useQuotation(sld?.id ?? null)
+  const { data: settings } = useSettings()
   const exportQuotation = useExportQuotation()
   const approveQuotation = useApproveQuotation()
   const rejectQuotation = useRejectQuotation()
@@ -162,6 +164,7 @@ export function CenterPanel({
               filename={sld.filename}
               focusPage={focusPage}
               highlightedAnnotationId={highlightedAnnotationId}
+              annotationFontSize={settings?.annotationFontSize ?? 12}
             />
             <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} />
           </div>

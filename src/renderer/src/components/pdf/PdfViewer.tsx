@@ -65,6 +65,7 @@ interface PdfViewerProps {
   filename: string
   focusPage?: number
   highlightedAnnotationId?: string | null
+  annotationFontSize: number
 }
 
 interface Point {
@@ -80,7 +81,8 @@ export function PdfViewer({
   sldId,
   filename,
   focusPage,
-  highlightedAnnotationId
+  highlightedAnnotationId,
+  annotationFontSize
 }: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError, error: fileError } = useSldFile(sldId)
   // Spans the toolbar + containerRef together — its own height comes from
@@ -849,6 +851,7 @@ export function PdfViewer({
             liveStrokeWidth={strokeWidth}
             onMarkerClick={handleMarkerClick}
             highlightedAnnotationId={highlightedAnnotationId ?? null}
+            annotationFontSize={annotationFontSize}
             showAiAnnotations={showAiAnnotations}
           />
           {textEntry && (

@@ -21,6 +21,7 @@ interface AnnotationCanvasProps {
   onMarkerClick: (annotation: Annotation) => void
   highlightedAnnotationId: string | null
   showAiAnnotations: boolean
+  annotationFontSize: number
 }
 
 export function AnnotationCanvas({
@@ -33,7 +34,8 @@ export function AnnotationCanvas({
   liveStrokeWidth,
   onMarkerClick,
   highlightedAnnotationId,
-  showAiAnnotations
+  showAiAnnotations,
+  annotationFontSize
 }: AnnotationCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO)
@@ -207,7 +209,8 @@ export function AnnotationCanvas({
             </button>
             {isInfoOpen && (
               <div
-                className="pointer-events-auto absolute left-0 top-full z-10 mt-1 max-w-[16rem] rounded-md border border-border-strong bg-surface-raised px-2 py-1.5 text-xs text-text-primary shadow-lg"
+                className="pointer-events-auto absolute left-0 top-full z-10 mt-1 max-w-[16rem] rounded-md border border-border-strong bg-surface-raised px-2 py-1.5 text-text-primary shadow-lg"
+                style={{ fontSize: `${annotationFontSize}px` }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {box.commentText}
