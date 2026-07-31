@@ -1,5 +1,6 @@
 appId: com.elias.equotation
 productName: eQuotation
+copyright: Copyright © 2026 Elias Brendon
 directories:
   buildResources: build
 files:
