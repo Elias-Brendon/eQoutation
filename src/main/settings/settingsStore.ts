@@ -22,6 +22,14 @@ function defaultSettings(): AppSettings {
     preferredBrands: [],
     preferredBrandsByType: {},
     enabledComponentTypes: DEFAULT_COMPONENT_TYPES,
+    projectSectors: [
+      'Data Centre',
+      'Industrial',
+      'Infrastructure',
+      'Renewable Energy',
+      'Semiconductor'
+    ],
+    companies: [],
     customExtractionRules: [],
     aiModel: DEFAULT_AI_MODEL,
     // Real extraction data shows the model's self-reported confidence
@@ -53,6 +61,8 @@ export function getSettings(): AppSettings {
       preferredBrands: parsed.preferredBrands ?? defaults.preferredBrands,
       preferredBrandsByType: parsed.preferredBrandsByType ?? defaults.preferredBrandsByType,
       enabledComponentTypes: parsed.enabledComponentTypes ?? defaults.enabledComponentTypes,
+      projectSectors: parsed.projectSectors ?? defaults.projectSectors,
+      companies: parsed.companies ?? defaults.companies,
       customExtractionRules: parsed.customExtractionRules ?? defaults.customExtractionRules,
       aiModel: parsed.aiModel ?? defaults.aiModel,
       confidenceThreshold: parsed.confidenceThreshold ?? defaults.confidenceThreshold,

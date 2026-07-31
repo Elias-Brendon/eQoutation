@@ -57,6 +57,10 @@ export interface AppSettings {
   /** componentType -> single preferred brand; absent/unset falls back to preferredBrands. */
   preferredBrandsByType: Record<string, string>
   enabledComponentTypes: string[]
+  /** Options shown in the project Sector dropdown — fully user-owned, no fixed baseline. */
+  projectSectors: string[]
+  /** Options shown in the project Company dropdown — fully user-owned, starts empty. */
+  companies: string[]
   /** Free-text rules appended to every AI extraction prompt, alongside the built-in rules. */
   customExtractionRules: string[]
   aiModel: string
