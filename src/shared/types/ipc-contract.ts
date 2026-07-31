@@ -1,4 +1,5 @@
 export const IPC = {
+  appGetVersion: 'app:getVersion',
   authGetStatus: 'auth:getStatus',
   authSetup: 'auth:setup',
   authLogin: 'auth:login',

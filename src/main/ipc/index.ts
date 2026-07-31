@@ -1,3 +1,4 @@
+import { registerAppIpc } from './app.ipc'
 import { registerAuthIpc } from './auth.ipc'
 import { registerSettingsIpc } from './settings.ipc'
 import { registerSecretsIpc } from './secrets.ipc'
@@ -13,6 +14,7 @@ import { registerExportIpc } from './export.ipc'
 import { registerFxIpc } from './fx.ipc'
 
 export function registerAllIpc(): void {
+  registerAppIpc()
   registerAuthIpc()
   registerSettingsIpc()
   registerSecretsIpc()

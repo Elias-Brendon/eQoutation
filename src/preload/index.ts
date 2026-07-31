@@ -43,6 +43,9 @@ import type {
 } from '../shared/types/entities'
 
 const api = {
+  app: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion)
+  },
   auth: {
     getStatus: (): Promise<AuthStatus> => ipcRenderer.invoke(IPC.authGetStatus),
     setup: (input: SetupInput): Promise<AuthUser> => ipcRenderer.invoke(IPC.authSetup, input),
