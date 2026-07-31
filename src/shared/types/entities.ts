@@ -85,6 +85,8 @@ export interface PickCatalogDirResult {
 
 export type SldStatus = 'done' | 'in_progress' | 'rejected'
 export type QuotationStatus = 'generating' | 'pending_review' | 'approved' | 'rejected'
+/** Project-level status, independent of any individual quotation's status — reuses the same 4 values for label/UI consistency. */
+export type ProjectStatus = QuotationStatus
 export type FlagOrigin = 'matcher' | 'ai' | 'human'
 export type FlagStatus = 'open' | 'resolved'
 export type FlagSeverity = 'info' | 'warning'
@@ -105,16 +107,34 @@ export interface Project {
   updatedAt: string
   /** Overrides Settings.aiModel for this project's extractions when set; null uses the global default. */
   aiModelOverride: string | null
+  sector: string | null
+  quotationNumber: string
+  company: string | null
+  coordinator: string | null
+  status: ProjectStatus
+  createdBy: string | null
 }
 
 export interface CreateProjectInput {
   name: string
   substationLabel?: string
+  sector?: string
+  company?: string
+  coordinator?: string
 }
 
 export interface UpdateProjectAiModelOverrideInput {
   projectId: string
   aiModelOverride: string | null
+}
+
+export interface UpdateProjectDetailsInput {
+  projectId: string
+  name?: string
+  sector?: string | null
+  company?: string | null
+  coordinator?: string | null
+  status?: ProjectStatus
 }
 
 export interface UpdateProjectCurrencySettingsInput {
