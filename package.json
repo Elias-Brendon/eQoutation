@@ -2,8 +2,9 @@
   "name": "eqoutation",
   "version": "0.1.0",
   "description": "Switchboard manufacturing quotation generator",
+  "license": "UNLICENSED",
   "main": "./out/main/index.js",
-  "author": "Elias",
+  "author": "Elias Brendon",
   "homepage": "https://github.com/",
   "scripts": {
     "format": "prettier --write .",
