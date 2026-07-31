@@ -262,6 +262,7 @@ function App(): React.JSX.Element {
             selectProject(projectId)
             setCreateProjectOpen(false)
           }}
+          currentUsername={authStatus?.user?.username ?? null}
         />
         <ProjectSwitcherModal
           open={projectSwitcherOpen}
