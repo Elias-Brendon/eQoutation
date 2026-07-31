@@ -11,6 +11,7 @@ import { QuotationListColumn } from '@renderer/components/layout/QuotationListCo
 import { SidebarRail } from '@renderer/components/layout/SidebarRail'
 import { CreateProjectDialog } from '@renderer/components/layout/CreateProjectDialog'
 import { ProjectSwitcherModal } from '@renderer/components/layout/ProjectSwitcherModal'
+import { ProjectDetailsModal } from '@renderer/components/layout/ProjectDetailsModal'
 import { AddSldDialog } from '@renderer/components/layout/AddSldDialog'
 import { CatalogModal } from '@renderer/components/catalog/CatalogModal'
 import { SettingsPage } from '@renderer/components/settings/SettingsPage'
@@ -65,6 +66,7 @@ function App(): React.JSX.Element {
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [projectSwitcherOpen, setProjectSwitcherOpen] = useState(false)
+  const [projectDetailsOpen, setProjectDetailsOpen] = useState(false)
 
   // Below this width: the two side columns collapse to icon rails (pinned
   // open on demand as an overlay) so the center PDF+Quotation split keeps
@@ -203,6 +205,7 @@ function App(): React.JSX.Element {
           onNewProject={() => setCreateProjectOpen(true)}
           onOpenCatalog={() => setCatalogOpen(true)}
           onOpenProjectSwitcher={() => setProjectSwitcherOpen(true)}
+          onOpenProjectDetails={() => setProjectDetailsOpen(true)}
           onExportProject={() => selectedProject && exportProject.mutate(selectedProject.id)}
           exportPending={exportProject.isPending}
           username={authStatus?.user?.username ?? null}
@@ -270,6 +273,11 @@ function App(): React.JSX.Element {
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={selectProject}
+        />
+        <ProjectDetailsModal
+          open={projectDetailsOpen}
+          onClose={() => setProjectDetailsOpen(false)}
+          project={selectedProject}
         />
         {selectedProject && (
           <AddSldDialog
