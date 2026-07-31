@@ -14,6 +14,7 @@ import { AccountSection } from './sections/AccountSection'
 import { FontSizeSection } from './sections/FontSizeSection'
 import { TrainingDataSection } from './sections/TrainingDataSection'
 import { UserManualSection } from './sections/UserManualSection'
+import { AboutSection } from './sections/AboutSection'
 import type { AuthUser } from '@shared/types/entities'
 
 type SectionId =
@@ -30,6 +31,7 @@ type SectionId =
   | 'fontSize'
   | 'trainingData'
   | 'userManual'
+  | 'about'
 
 interface NavItem {
   id: SectionId
@@ -49,7 +51,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'account', label: 'Account' },
   { id: 'fontSize', label: 'Font Size' },
   { id: 'trainingData', label: 'Training Data' },
-  { id: 'userManual', label: 'User Manual' }
+  { id: 'userManual', label: 'User Manual' },
+  { id: 'about', label: 'About' }
 ]
 
 interface SettingsPageProps {
@@ -103,6 +106,7 @@ export function SettingsPage({
           {activeSection === 'fontSize' && <FontSizeSection />}
           {activeSection === 'trainingData' && <TrainingDataSection />}
           {activeSection === 'userManual' && <UserManualSection />}
+          {activeSection === 'about' && <AboutSection />}
         </div>
       </div>
     </Modal>
