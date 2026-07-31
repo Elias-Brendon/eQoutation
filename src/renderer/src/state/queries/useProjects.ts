@@ -8,6 +8,7 @@ import {
 import type {
   CreateProjectInput,
   Project,
+  UpdateProjectAiModelOverrideInput,
   UpdateProjectCurrencySettingsInput
 } from '@shared/types/entities'
 
@@ -36,6 +37,19 @@ export function useUpdateProjectCurrencySettings(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input) => window.api.projects.updateCurrencySettings(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
+  })
+}
+
+export function useUpdateProjectAiModelOverride(): UseMutationResult<
+  Project,
+  Error,
+  UpdateProjectAiModelOverrideInput
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateProjectAiModelOverrideInput) =>
+      window.api.projects.updateAiModelOverride(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
   })
 }
