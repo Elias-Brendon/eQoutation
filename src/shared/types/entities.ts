@@ -103,11 +103,18 @@ export interface Project {
   aiProgressPct: number
   createdAt: string
   updatedAt: string
+  /** Overrides Settings.aiModel for this project's extractions when set; null uses the global default. */
+  aiModelOverride: string | null
 }
 
 export interface CreateProjectInput {
   name: string
   substationLabel?: string
+}
+
+export interface UpdateProjectAiModelOverrideInput {
+  projectId: string
+  aiModelOverride: string | null
 }
 
 export interface UpdateProjectCurrencySettingsInput {
