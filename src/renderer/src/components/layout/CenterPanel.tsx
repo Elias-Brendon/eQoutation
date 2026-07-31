@@ -29,10 +29,11 @@ import {
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 import { useAnnotationsBySld } from '@renderer/state/queries/useAnnotations'
 import { useSettings } from '@renderer/state/queries/useSettings'
-import type { Annotation, PanelMode, Sld } from '@shared/types/entities'
+import type { Annotation, PanelMode, Project, Sld } from '@shared/types/entities'
 
 interface CenterPanelProps {
   sld: Sld | null
+  project: Project | null
   panelMode: PanelMode
   onPanelModeChange: (mode: PanelMode) => void
 }
@@ -62,6 +63,7 @@ function Rail({ side, label, onExpand }: RailProps): React.JSX.Element {
 
 export function CenterPanel({
   sld,
+  project,
   panelMode,
   onPanelModeChange
 }: CenterPanelProps): React.JSX.Element {
@@ -166,7 +168,7 @@ export function CenterPanel({
               highlightedAnnotationId={highlightedAnnotationId}
               annotationFontSize={settings?.annotationFontSize ?? 12}
             />
-            <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} />
+            <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} project={project} />
           </div>
         ) : (
           <Rail side="left" label="PDF Diagram" onExpand={() => onPanelModeChange('split')} />

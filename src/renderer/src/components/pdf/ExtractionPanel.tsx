@@ -4,17 +4,26 @@ import { Badge } from '@renderer/components/common/Badge'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { useUiStore } from '@renderer/state/useUiStore'
 import { useExtractSld, useExtraction } from '@renderer/state/queries/useExtraction'
+import { useSettings } from '@renderer/state/queries/useSettings'
+import { useUpdateProjectAiModelOverride } from '@renderer/state/queries/useProjects'
+import { AVAILABLE_AI_MODELS } from '@shared/constants/aiModels'
+import type { Project } from '@shared/types/entities'
 
 interface ExtractionPanelProps {
   sldId: string
+  project: Project | null
 }
 
-export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Element {
+export function ExtractionPanel({ sldId, project }: ExtractionPanelProps): React.JSX.Element {
   const { data: extraction } = useExtraction(sldId)
   const extractSld = useExtractSld()
   const liveProgress = useUiStore((s) =>
     s.extractionProgress?.sldId === sldId ? s.extractionProgress : null
   )
+  const { data: settings } = useSettings()
+  const updateAiModelOverride = useUpdateProjectAiModelOverride()
+  const globalModelLabel =
+    AVAILABLE_AI_MODELS.find((m) => m.id === settings?.aiModel)?.label ?? settings?.aiModel ?? '—'
 
   const running = extraction?.status === 'running' || extractSld.isPending
   const pct = liveProgress?.pct ?? (running ? 5 : 0)
@@ -61,6 +70,32 @@ export function ExtractionPanel({ sldId }: ExtractionPanelProps): React.JSX.Elem
           {alreadyExtracted ? 'Re-extract…' : extraction ? 'Re-run' : 'Generate'}
         </Button>
       </div>
+
+      {project && (
+        <div className="flex items-center gap-2 text-xs">
+          <label className="text-text-muted" htmlFor={`ai-model-override-${project.id}`}>
+            Project AI model (applies to every SLD in this project)
+          </label>
+          <select
+            id={`ai-model-override-${project.id}`}
+            value={project.aiModelOverride ?? ''}
+            onChange={(e) =>
+              updateAiModelOverride.mutate({
+                projectId: project.id,
+                aiModelOverride: e.target.value === '' ? null : e.target.value
+              })
+            }
+            className="h-7 rounded border border-border-strong bg-surface px-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
+          >
+            <option value="">Use global default (currently: {globalModelLabel})</option>
+            {AVAILABLE_AI_MODELS.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {running && (
         <div className="flex items-center gap-2">

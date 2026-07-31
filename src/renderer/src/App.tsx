@@ -214,7 +214,12 @@ function App(): React.JSX.Element {
               addDisabled={!selectedProject}
             />
           </SidebarRail>
-          <CenterPanel sld={selectedSld} panelMode={panelMode} onPanelModeChange={setPanelMode} />
+          <CenterPanel
+            sld={selectedSld}
+            project={selectedProject}
+            panelMode={panelMode}
+            onPanelModeChange={setPanelMode}
+          />
           <SidebarRail
             side="right"
             label="Quotations"
