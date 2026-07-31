@@ -10,6 +10,7 @@ import { CenterPanel } from '@renderer/components/layout/CenterPanel'
 import { QuotationListColumn } from '@renderer/components/layout/QuotationListColumn'
 import { SidebarRail } from '@renderer/components/layout/SidebarRail'
 import { CreateProjectDialog } from '@renderer/components/layout/CreateProjectDialog'
+import { ProjectSwitcherModal } from '@renderer/components/layout/ProjectSwitcherModal'
 import { AddSldDialog } from '@renderer/components/layout/AddSldDialog'
 import { CatalogModal } from '@renderer/components/catalog/CatalogModal'
 import { SettingsPage } from '@renderer/components/settings/SettingsPage'
@@ -63,6 +64,7 @@ function App(): React.JSX.Element {
   const [addSldOpen, setAddSldOpen] = useState(false)
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [projectSwitcherOpen, setProjectSwitcherOpen] = useState(false)
 
   // Below this width: the two side columns collapse to icon rails (pinned
   // open on demand as an overlay) so the center PDF+Quotation split keeps
@@ -190,6 +192,7 @@ function App(): React.JSX.Element {
           }
           onNewProject={() => setCreateProjectOpen(true)}
           onOpenCatalog={() => setCatalogOpen(true)}
+          onOpenProjectSwitcher={() => setProjectSwitcherOpen(true)}
           onExportProject={() => selectedProject && exportProject.mutate(selectedProject.id)}
           exportPending={exportProject.isPending}
           username={authStatus?.user?.username ?? null}
@@ -244,6 +247,13 @@ function App(): React.JSX.Element {
             selectProject(projectId)
             setCreateProjectOpen(false)
           }}
+        />
+        <ProjectSwitcherModal
+          open={projectSwitcherOpen}
+          onClose={() => setProjectSwitcherOpen(false)}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={selectProject}
         />
         {selectedProject && (
           <AddSldDialog
