@@ -1,4 +1,5 @@
 import { getSldById } from '../db/repositories/sldsRepo'
+import { getProjectById } from '../db/repositories/projectsRepo'
 import {
   assertCanExtract,
   completeExtraction,
@@ -22,15 +23,14 @@ import type { Extraction, ProjectTokenUsage } from '@shared/types/entities'
 let provider: AIProvider | null = null
 let providerCacheKey: string | null = null
 
-function getProvider(): AIProvider {
+function getProvider(effectiveModel: string): AIProvider {
   const apiKey = getAnthropicApiKey()
   if (!apiKey) {
     throw new AppError('AI_NO_API_KEY')
   }
-  const { aiModel } = getSettings()
-  const cacheKey = `${apiKey}:${aiModel}`
+  const cacheKey = `${apiKey}:${effectiveModel}`
   if (!provider || providerCacheKey !== cacheKey) {
-    provider = new ClaudeProvider(apiKey, aiModel)
+    provider = new ClaudeProvider(apiKey, effectiveModel)
     providerCacheKey = cacheKey
   }
   return provider
@@ -58,7 +58,10 @@ export function registerAiIpc(): void {
           getSettings()
         const catalogDescriptions = listDistinctDescriptions(preferredBrands)
 
-        const provider = getProvider()
+        const project = getProjectById(sld.projectId)
+        const effectiveModel = project?.aiModelOverride ?? getSettings().aiModel
+
+        const provider = getProvider(effectiveModel)
 
         let result: ExtractionResult | undefined
         let lastError: Error | undefined

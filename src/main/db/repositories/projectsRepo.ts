@@ -13,6 +13,7 @@ interface ProjectRow {
   ai_progress_pct: number
   created_at: string
   updated_at: string
+  ai_model_override: string | null
 }
 
 function toProject(row: ProjectRow): Project {
@@ -26,7 +27,8 @@ function toProject(row: ProjectRow): Project {
     exchangeRateUpdatedAt: row.exchange_rate_updated_at,
     aiProgressPct: row.ai_progress_pct,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    aiModelOverride: row.ai_model_override
   }
 }
 
@@ -55,17 +57,18 @@ export function createProject(input: CreateProjectInput): Project {
     exchange_rate_updated_at: null,
     ai_progress_pct: 0,
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    ai_model_override: null
   }
 
   getDb()
     .prepare(
       `INSERT INTO projects
          (id, name, substation_label, currency, exchange_rate, exchange_rate_is_manual,
-          exchange_rate_updated_at, ai_progress_pct, created_at, updated_at)
+          exchange_rate_updated_at, ai_progress_pct, created_at, updated_at, ai_model_override)
        VALUES
          (@id, @name, @substation_label, @currency, @exchange_rate, @exchange_rate_is_manual,
-          @exchange_rate_updated_at, @ai_progress_pct, @created_at, @updated_at)`
+          @exchange_rate_updated_at, @ai_progress_pct, @created_at, @updated_at, @ai_model_override)`
     )
     .run(row)
 
@@ -99,5 +102,12 @@ export function updateProjectCurrencySettings(
       exchange_rate_updated_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
+  return getProjectById(id) as Project
+}
+
+export function updateProjectAiModelOverride(id: string, aiModelOverride: string | null): Project {
+  getDb()
+    .prepare('UPDATE projects SET ai_model_override = @ai_model_override WHERE id = @id')
+    .run({ id, ai_model_override: aiModelOverride })
   return getProjectById(id) as Project
 }
