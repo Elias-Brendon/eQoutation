@@ -19,6 +19,7 @@ export const IPC = {
   projectsCreate: 'projects:create',
   projectsUpdateCurrencySettings: 'projects:updateCurrencySettings',
   projectsUpdateAiModelOverride: 'projects:updateAiModelOverride',
+  projectsUpdateDetails: 'projects:updateDetails',
   fxGetRate: 'fx:getRate',
   sldsListByProject: 'slds:listByProject',
   sldsUpload: 'slds:upload',

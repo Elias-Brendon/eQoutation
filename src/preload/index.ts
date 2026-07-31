@@ -38,6 +38,7 @@ import type {
   TestApiKeyResult,
   UpdateProjectAiModelOverrideInput,
   UpdateProjectCurrencySettingsInput,
+  UpdateProjectDetailsInput,
   UploadSldInput
 } from '../shared/types/entities'
 
@@ -80,7 +81,9 @@ const api = {
     updateCurrencySettings: (input: UpdateProjectCurrencySettingsInput): Promise<Project> =>
       ipcRenderer.invoke(IPC.projectsUpdateCurrencySettings, input),
     updateAiModelOverride: (input: UpdateProjectAiModelOverrideInput): Promise<Project> =>
-      ipcRenderer.invoke(IPC.projectsUpdateAiModelOverride, input)
+      ipcRenderer.invoke(IPC.projectsUpdateAiModelOverride, input),
+    updateDetails: (input: UpdateProjectDetailsInput): Promise<Project> =>
+      ipcRenderer.invoke(IPC.projectsUpdateDetails, input)
   },
   fx: {
     getRate: (targetCurrency: string, forceRefresh = false): Promise<FxRateResult> =>
