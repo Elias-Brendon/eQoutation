@@ -60,7 +60,7 @@ export function TopBar({
           type="button"
           onClick={onOpenProjectSwitcher}
           title="Switch project"
-          className="-mx-1 min-w-0 rounded px-1 text-left transition-colors hover:bg-surface-hover"
+          className="-mx-1 min-w-16 rounded px-1 text-left transition-colors hover:bg-surface-hover"
         >
           <div className="truncate text-sm font-semibold text-text-primary">{project.name}</div>
           <div className="truncate text-xs text-text-muted">{project.substationLabel}</div>

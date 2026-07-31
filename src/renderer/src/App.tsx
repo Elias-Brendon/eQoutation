@@ -74,8 +74,18 @@ function App(): React.JSX.Element {
   // https://react.dev/learn/you-might-not-need-an-effect) so a stale pin
   // from a previous narrow session doesn't reopen unexpectedly the next
   // time the window narrows again.
+  //
+  // Threshold is 1536 (not the side columns' own ~1280 squeeze point)
+  // because the TopBar's non-compact content (full button labels + the
+  // project name) can outgrow the window well above 1280px — e.g. a
+  // double-digit AI flag count plus a long project name — and the name is
+  // the only element in that row allowed to shrink below its content size,
+  // so any leftover deficit collapses it to 0 width instead of truncating.
+  // Compact mode is cheap (icons + tooltips, nothing lost functionally) and
+  // already verified to fit comfortably well below 1280px, so erring
+  // towards compact avoids that dead zone entirely.
   const windowWidth = useWindowWidth()
-  const isNarrowWindow = windowWidth < 1280
+  const isNarrowWindow = windowWidth < 1536
   const [sldRailPinned, setSldRailPinned] = useState(false)
   const [quotationRailPinned, setQuotationRailPinned] = useState(false)
   const [prevIsNarrowWindow, setPrevIsNarrowWindow] = useState(isNarrowWindow)
