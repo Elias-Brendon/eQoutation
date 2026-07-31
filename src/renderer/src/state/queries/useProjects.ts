@@ -9,7 +9,8 @@ import type {
   CreateProjectInput,
   Project,
   UpdateProjectAiModelOverrideInput,
-  UpdateProjectCurrencySettingsInput
+  UpdateProjectCurrencySettingsInput,
+  UpdateProjectDetailsInput
 } from '@shared/types/entities'
 
 export const projectsQueryKey = ['projects'] as const
@@ -50,6 +51,18 @@ export function useUpdateProjectAiModelOverride(): UseMutationResult<
   return useMutation({
     mutationFn: (input: UpdateProjectAiModelOverrideInput) =>
       window.api.projects.updateAiModelOverride(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
+  })
+}
+
+export function useUpdateProjectDetails(): UseMutationResult<
+  Project,
+  Error,
+  UpdateProjectDetailsInput
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateProjectDetailsInput) => window.api.projects.updateDetails(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
   })
 }

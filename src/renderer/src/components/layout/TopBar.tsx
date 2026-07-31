@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Archive, Database, Flag, Loader2, Plus, RefreshCw, Upload, User } from 'lucide-react'
+import { Archive, Database, Flag, Info, Loader2, Plus, RefreshCw, Upload, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Logo } from '@renderer/components/animation/Logo'
 import { Button } from '@renderer/components/common/Button'
@@ -27,6 +27,7 @@ interface TopBarProps {
   exportPending: boolean
   onOpenSettings: () => void
   onOpenProjectSwitcher: () => void
+  onOpenProjectDetails: () => void
 }
 
 export function TopBar({
@@ -43,7 +44,8 @@ export function TopBar({
   onExportProject,
   exportPending,
   onOpenSettings,
-  onOpenProjectSwitcher
+  onOpenProjectSwitcher,
+  onOpenProjectDetails
 }: TopBarProps): React.JSX.Element {
   const progressPct = extractionProgress?.pct ?? project?.aiProgressPct ?? 0
   const progressLabel = extractionProgress
@@ -117,6 +119,18 @@ export function TopBar({
       >
         <Database className="h-4 w-4" />
         {!compact && 'Catalog'}
+      </Button>
+
+      <Button
+        variant="outline"
+        size="md"
+        onClick={onOpenProjectDetails}
+        disabled={!project}
+        title={project ? 'View project details' : undefined}
+        aria-label="Project details"
+      >
+        <Info className="h-4 w-4" />
+        {!compact && 'Details'}
       </Button>
 
       <Button

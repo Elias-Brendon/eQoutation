@@ -4,6 +4,8 @@ import { cn } from '@renderer/lib/cn'
 import { CatalogPathSection } from './sections/CatalogPathSection'
 import { PreferredBrandsSection } from './sections/PreferredBrandsSection'
 import { ComponentsSection } from './sections/ComponentsSection'
+import { ProjectSectorsSection } from './sections/ProjectSectorsSection'
+import { CompaniesSection } from './sections/CompaniesSection'
 import { ExtractionRulesSection } from './sections/ExtractionRulesSection'
 import { AiModelSection } from './sections/AiModelSection'
 import { ApiKeysSection } from './sections/ApiKeysSection'
@@ -18,6 +20,8 @@ type SectionId =
   | 'catalogPath'
   | 'preferredBrands'
   | 'components'
+  | 'projectSectors'
+  | 'companies'
   | 'extractionRules'
   | 'aiModel'
   | 'apiKeys'
@@ -36,6 +40,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'catalogPath', label: 'Catalog Path' },
   { id: 'preferredBrands', label: 'Preferred Brands' },
   { id: 'components', label: 'Components' },
+  { id: 'projectSectors', label: 'Project Sectors' },
+  { id: 'companies', label: 'Companies' },
   { id: 'extractionRules', label: 'Extraction Rules' },
   { id: 'aiModel', label: 'AI Model' },
   { id: 'apiKeys', label: 'API Keys' },
@@ -87,6 +93,8 @@ export function SettingsPage({
           {activeSection === 'catalogPath' && <CatalogPathSection />}
           {activeSection === 'preferredBrands' && <PreferredBrandsSection />}
           {activeSection === 'components' && <ComponentsSection />}
+          {activeSection === 'projectSectors' && <ProjectSectorsSection />}
+          {activeSection === 'companies' && <CompaniesSection />}
           {activeSection === 'extractionRules' && <ExtractionRulesSection />}
           {activeSection === 'aiModel' && <AiModelSection />}
           {activeSection === 'apiKeys' && <ApiKeysSection />}

@@ -4,6 +4,7 @@ import { app } from 'electron'
 import ExcelJS from 'exceljs'
 import type { Project, Quotation, QuotationLine, Sld } from '@shared/types/entities'
 import { convertFromBase } from '@shared/lib/currencyConversion'
+import { PROJECT_STATUS_LABELS } from '@shared/constants/projectStatus'
 
 // Column layout mirrors catalog/sample.xlsm's per-board sheets (TYPE,
 // DESCRIPTION, MAKER, UNIT, LIST $, DISCOUNT, COST, TOTAL, MARGIN, QUOTE),
@@ -158,6 +159,32 @@ function writeBomSheet(
   })
 }
 
+function writeCoverSheet(sheet: ExcelJS.Worksheet, project: Project): void {
+  sheet.mergeCells('A1:B1')
+  sheet.getCell('A1').value = project.name
+  sheet.getCell('A1').font = { bold: true, size: 16 }
+
+  const rows: [string, string][] = [
+    ['Sector', project.sector ?? '—'],
+    ['Quotation #', project.quotationNumber],
+    ['Company', project.company ?? '—'],
+    ['Coordinator', project.coordinator ?? '—'],
+    ['Status', PROJECT_STATUS_LABELS[project.status]],
+    ['Enquiry Date', new Date(project.createdAt).toLocaleDateString()],
+    ['Created by', project.createdBy ?? '—']
+  ]
+
+  rows.forEach(([label, value], i) => {
+    const rowNumber = i + 3
+    sheet.getCell(`A${rowNumber}`).value = `${label}:`
+    sheet.getCell(`A${rowNumber}`).font = { bold: true }
+    sheet.getCell(`B${rowNumber}`).value = value
+  })
+
+  sheet.getColumn(1).width = 16
+  sheet.getColumn(2).width = 40
+}
+
 export async function writeQuotationWorkbook(
   quotation: Quotation,
   project: Project,
@@ -165,6 +192,9 @@ export async function writeQuotationWorkbook(
 ): Promise<string> {
   const workbook = new ExcelJS.Workbook()
   const usedSheetNames = new Set<string>()
+
+  const coverSheet = workbook.addWorksheet(sanitizeSheetName('Project Details', usedSheetNames))
+  writeCoverSheet(coverSheet, project)
 
   const fullBomSheet = workbook.addWorksheet(sanitizeSheetName('Full BOM', usedSheetNames))
   writeBomSheet(fullBomSheet, project, sld, quotation, quotation.lines, true)
