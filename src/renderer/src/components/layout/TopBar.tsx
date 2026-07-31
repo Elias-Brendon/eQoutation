@@ -26,6 +26,7 @@ interface TopBarProps {
   onExportProject: () => void
   exportPending: boolean
   onOpenSettings: () => void
+  onOpenProjectSwitcher: () => void
 }
 
 export function TopBar({
@@ -41,7 +42,8 @@ export function TopBar({
   onOpenCatalog,
   onExportProject,
   exportPending,
-  onOpenSettings
+  onOpenSettings,
+  onOpenProjectSwitcher
 }: TopBarProps): React.JSX.Element {
   const progressPct = extractionProgress?.pct ?? project?.aiProgressPct ?? 0
   const progressLabel = extractionProgress
@@ -54,10 +56,15 @@ export function TopBar({
       <div className="h-6 w-px bg-border" />
 
       {project ? (
-        <div className="min-w-0">
+        <button
+          type="button"
+          onClick={onOpenProjectSwitcher}
+          title="Switch project"
+          className="-mx-1 min-w-16 rounded px-1 text-left transition-colors hover:bg-surface-hover"
+        >
           <div className="truncate text-sm font-semibold text-text-primary">{project.name}</div>
           <div className="truncate text-xs text-text-muted">{project.substationLabel}</div>
-        </div>
+        </button>
       ) : (
         <div className="text-sm text-text-muted">No project yet</div>
       )}
