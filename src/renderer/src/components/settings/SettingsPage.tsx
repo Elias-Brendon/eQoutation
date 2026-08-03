@@ -13,6 +13,7 @@ import { MarginsSection } from './sections/MarginsSection'
 import { AccountSection } from './sections/AccountSection'
 import { FontSizeSection } from './sections/FontSizeSection'
 import { TrainingDataSection } from './sections/TrainingDataSection'
+import { DiagnosticsSection } from './sections/DiagnosticsSection'
 import { UserManualSection } from './sections/UserManualSection'
 import { AboutSection } from './sections/AboutSection'
 import type { AuthUser } from '@shared/types/entities'
@@ -30,6 +31,7 @@ type SectionId =
   | 'account'
   | 'fontSize'
   | 'trainingData'
+  | 'diagnostics'
   | 'userManual'
   | 'about'
 
@@ -51,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'account', label: 'Account' },
   { id: 'fontSize', label: 'Font Size' },
   { id: 'trainingData', label: 'Training Data' },
+  { id: 'diagnostics', label: 'Diagnostics' },
   { id: 'userManual', label: 'User Manual' },
   { id: 'about', label: 'About' }
 ]
@@ -105,6 +108,7 @@ export function SettingsPage({
           {activeSection === 'account' && <AccountSection user={user} onLogout={onLogout} />}
           {activeSection === 'fontSize' && <FontSizeSection />}
           {activeSection === 'trainingData' && <TrainingDataSection />}
+          {activeSection === 'diagnostics' && <DiagnosticsSection />}
           {activeSection === 'userManual' && <UserManualSection />}
           {activeSection === 'about' && <AboutSection />}
         </div>

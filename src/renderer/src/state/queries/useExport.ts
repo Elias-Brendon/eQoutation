@@ -11,3 +11,9 @@ export function useExportTrainingData(): UseMutationResult<string | null, Error,
     mutationFn: () => window.api.export.trainingData()
   })
 }
+
+export function useExportDiagnosticBundle(): UseMutationResult<string | null, Error, void> {
+  return useMutation({
+    mutationFn: () => window.api.export.diagnosticBundle()
+  })
+}

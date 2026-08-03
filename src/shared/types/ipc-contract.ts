@@ -59,5 +59,6 @@ export const IPC = {
   feedbackResolveLine: 'feedback:resolveLine',
   feedbackListByLine: 'feedback:listByLine',
   exportProject: 'export:project',
-  exportTrainingData: 'export:trainingData'
+  exportTrainingData: 'export:trainingData',
+  exportDiagnosticBundle: 'export:diagnosticBundle'
 } as const
