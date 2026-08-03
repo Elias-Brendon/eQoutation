@@ -31,7 +31,6 @@ export async function renderPdfPagesToImages(
 ): Promise<{ pageNumber: number; base64Png: string }[]> {
   const loadingTask = getDocument({
     data: pdfBytes,
-    disableWorker: true,
     standardFontDataUrl: STANDARD_FONT_DATA_URL
   })
   const pdfDoc = await loadingTask.promise
@@ -49,10 +48,10 @@ export async function renderPdfPagesToImages(
     // the two causes an `instanceof Path2D` mismatch during text
     // rendering (ESM import vs pdfjs-dist's internal CJS require load as
     // two distinct module instances with two distinct Path2D classes).
-    const { canvas, context } = pdfDoc.canvasFactory.create(
-      Math.ceil(viewport.width),
-      Math.ceil(viewport.height)
-    )
+    const canvasFactory = pdfDoc.canvasFactory as unknown as {
+      create(width: number, height: number): { canvas: unknown; context: CanvasRenderingContext2D }
+    }
+    const { canvas, context } = canvasFactory.create(Math.ceil(viewport.width), Math.ceil(viewport.height))
     await page.render({ canvasContext: context, viewport }).promise
 
     pages.push({

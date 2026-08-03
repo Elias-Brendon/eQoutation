@@ -36,8 +36,9 @@ export function buildExtractionSystemPrompt(
 reading Single Line Diagrams (SLDs) to build a bill of materials for a
 quotation.
 
-Go through every page of the attached PDF. A single page may contain
-multiple panels — process every one.
+Go through every page image below, in order (each is labeled "Page N"
+immediately before it). A single page may contain multiple panels —
+process every one.
 
 ## Step 1 — Identify the panel(s) to manufacture
 

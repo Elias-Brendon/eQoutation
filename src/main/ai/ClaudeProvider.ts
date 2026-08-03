@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AIProvider, ExtractParams, ExtractionResult } from './AIProvider'
 import { buildExtractionJsonSchema, normalizeExtractionPayload } from './extractionSchema'
 import { buildExtractionSystemPrompt } from './promptTemplates'
+import { renderPdfPagesToImages } from './pdfRenderer'
 import { AppError } from '../errors/AppError'
 import { formatErrorCode } from '@shared/errors/errorCodes'
 import type { TestApiKeyResult } from '@shared/types/entities'
@@ -30,7 +31,6 @@ export class ClaudeProvider implements AIProvider {
 
   async extractComponents({
     pdfBytes,
-    filename,
     enabledComponentTypes,
     catalogDescriptions,
     preferredBrands,
@@ -38,7 +38,15 @@ export class ClaudeProvider implements AIProvider {
     onProgress
   }: ExtractParams): Promise<ExtractionResult> {
     onProgress?.({ pct: 5, stage: 'Reading PDF' })
-    const base64 = Buffer.from(pdfBytes).toString('base64')
+
+    onProgress?.({ pct: 10, stage: 'Rendering pages' })
+    let pages: { pageNumber: number; base64Png: string }[]
+    try {
+      pages = await renderPdfPagesToImages(pdfBytes)
+    } catch (error) {
+      console.error('[ai:renderPdfPagesToImages]', error)
+      throw new AppError('AI_PAGE_RENDER_FAILED')
+    }
 
     onProgress?.({ pct: 15, stage: 'Sending to Claude' })
 
@@ -47,6 +55,16 @@ export class ClaudeProvider implements AIProvider {
       pct = Math.min(PROGRESS_TICK_CAP, pct + 3)
       onProgress?.({ pct, stage: 'Analyzing diagram' })
     }, PROGRESS_TICK_MS)
+
+    const pageContentBlocks = pages.flatMap(
+      (page): Anthropic.Messages.ContentBlockParam[] => [
+        { type: 'text', text: `Page ${page.pageNumber}` },
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/png', data: page.base64Png }
+        }
+      ]
+    )
 
     let message: Anthropic.Messages.Message
     try {
@@ -67,11 +85,7 @@ export class ClaudeProvider implements AIProvider {
           {
             role: 'user',
             content: [
-              {
-                type: 'document',
-                source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-                title: filename
-              },
+              ...pageContentBlocks,
               {
                 type: 'text',
                 text: 'Extract every component from this switchboard SLD as described in the system prompt.'
