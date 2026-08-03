@@ -141,9 +141,14 @@ export async function testAnthropicApiKey(apiKey: string): Promise<TestApiKeyRes
   try {
     const client = new Anthropic({ apiKey })
     // Listing models is a cheap, zero-generation call — it only checks that
-    // the key authenticates, without spending any output tokens.
-    await client.models.list({ limit: 1 })
-    return { ok: true }
+    // the key authenticates, without spending any output tokens. Walking
+    // every page (via the SDK's async-iterable pagination) also gives the
+    // caller the real, current model list to populate Settings > AI Model.
+    const models: { id: string; label: string }[] = []
+    for await (const model of client.models.list()) {
+      models.push({ id: model.id, label: model.display_name })
+    }
+    return { ok: true, models }
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) {
       return { ok: false, error: formatErrorCode('AI_RATE_LIMITED') }

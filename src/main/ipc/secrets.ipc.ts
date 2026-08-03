@@ -1,5 +1,7 @@
 import { deleteSecret, getMaskedSecret, setSecret } from '../settings/secretsStore'
 import { testAnthropicApiKey } from '../ai/ClaudeProvider'
+import { getSettings, updateSettings } from '../settings/settingsStore'
+import { resolveAiModelForModelList } from '../settings/aiModelResolver'
 import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
@@ -20,8 +22,17 @@ export function registerSecretsIpc(): void {
 
   safeHandle(
     IPC.secretsTestApiKey,
-    (_event, _keyName: SecretKeyName, key: string): Promise<TestApiKeyResult> =>
-      testAnthropicApiKey(key)
+    async (_event, _keyName: SecretKeyName, key: string): Promise<TestApiKeyResult> => {
+      const result = await testAnthropicApiKey(key)
+      if (result.ok && result.models) {
+        const currentAiModel = getSettings().aiModel
+        updateSettings({
+          cachedAiModels: result.models,
+          aiModel: resolveAiModelForModelList(currentAiModel, result.models)
+        })
+      }
+      return result
+    }
   )
 
   safeHandle(IPC.secretsDeleteApiKey, (_event, keyName: SecretKeyName): void =>
