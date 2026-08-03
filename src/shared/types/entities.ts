@@ -337,6 +337,18 @@ export interface FeedbackLogEntry {
   createdAt: string
 }
 
+export type EventLogLevel = 'error' | 'crash'
+
+export interface EventLogEntry {
+  id: string
+  level: EventLogLevel
+  source: string
+  message: string
+  errorCode: string | null
+  context: string | null
+  createdAt: string
+}
+
 export interface FeedbackResolveLineInput {
   lineId: string
   flagId: string | null

@@ -22,6 +22,7 @@ import { sql as m0021 } from './0021_feedback_log_flag_support'
 import { sql as m0022 } from './0022_annotation_quotation_line'
 import { sql as m0023 } from './0023_project_ai_model_override'
 import { sql as m0024 } from './0024_project_details'
+import { sql as m0025 } from './0025_event_log'
 
 export interface Migration {
   version: number
@@ -53,5 +54,6 @@ export const migrations: Migration[] = [
   { version: 21, name: '0021_feedback_log_flag_support', sql: m0021 },
   { version: 22, name: '0022_annotation_quotation_line', sql: m0022 },
   { version: 23, name: '0023_project_ai_model_override', sql: m0023 },
-  { version: 24, name: '0024_project_details', sql: m0024 }
+  { version: 24, name: '0024_project_details', sql: m0024 },
+  { version: 25, name: '0025_event_log', sql: m0025 }
 ]
