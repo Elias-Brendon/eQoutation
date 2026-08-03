@@ -24,7 +24,8 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
-    "release": "standard-version"
+    "release": "standard-version",
+    "verify:installer": "powershell -ExecutionPolicy Bypass -File scripts/verify-installer.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
