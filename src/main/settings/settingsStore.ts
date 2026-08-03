@@ -40,7 +40,8 @@ function defaultSettings(): AppSettings {
     maxExtractionRetries: 0,
     defaultMargin: 1.35,
     fontScale: 'md',
-    annotationFontSize: 12
+    annotationFontSize: 12,
+    dismissedUpdateVersion: null
   }
 }
 
@@ -69,7 +70,8 @@ export function getSettings(): AppSettings {
       maxExtractionRetries: parsed.maxExtractionRetries ?? defaults.maxExtractionRetries,
       defaultMargin: parsed.defaultMargin ?? defaults.defaultMargin,
       fontScale: parsed.fontScale ?? defaults.fontScale,
-      annotationFontSize: parsed.annotationFontSize ?? defaults.annotationFontSize
+      annotationFontSize: parsed.annotationFontSize ?? defaults.annotationFontSize,
+      dismissedUpdateVersion: parsed.dismissedUpdateVersion ?? defaults.dismissedUpdateVersion
     }
   } catch {
     return defaults

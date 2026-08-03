@@ -70,6 +70,8 @@ export interface AppSettings {
   fontScale: FontScale
   /** Font size in px for the AI annotation info popup shown on the PDF diagram. */
   annotationFontSize: number
+  /** Latest version the user dismissed the "update available" notice for — null if never dismissed. */
+  dismissedUpdateVersion: string | null
 }
 
 export interface ChangePasswordInput {

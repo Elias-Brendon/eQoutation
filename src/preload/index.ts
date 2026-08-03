@@ -39,12 +39,14 @@ import type {
   UpdateProjectAiModelOverrideInput,
   UpdateProjectCurrencySettingsInput,
   UpdateProjectDetailsInput,
+  UpdateStatus,
   UploadSldInput
 } from '../shared/types/entities'
 
 const api = {
   app: {
-    getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion)
+    getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion),
+    getUpdateStatus: (): Promise<UpdateStatus | null> => ipcRenderer.invoke(IPC.appGetUpdateStatus)
   },
   auth: {
     getStatus: (): Promise<AuthStatus> => ipcRenderer.invoke(IPC.authGetStatus),
