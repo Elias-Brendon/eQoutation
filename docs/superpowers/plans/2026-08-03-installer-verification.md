@@ -14,7 +14,7 @@
 - Silent CLI install/uninstall via `/S`, never GUI click-through. Source: spec "Install mechanism."
 - The script must always build fresh via `npm run build:win` — never accept a pre-built `dist/` artifact, so a stale build can't produce a false pass. Source: spec step 2.
 - Pre-flight guard: abort before touching anything if `%LOCALAPPDATA%\Programs\eQuotation` or `%APPDATA%\eqoutation` already exist. Source: spec step 1.
-- `%APPDATA%\eqoutation` (userData/DB) is expected to survive uninstall — report this as informational, not a failure. Source: spec step 7.
+- The installed app must never be launched against the real `%APPDATA%\eqoutation` — that path holds this machine's actual dev data. Launch with Electron's `--user-data-dir=<isolated temp dir>` switch instead, and check that the isolated dir survives uninstall (proving the uninstaller doesn't delete userData at any path), then delete it as the script's own final housekeeping. Source: spec step 1 and step 7 (corrected 2026-08-03, found while executing this plan).
 - No catalog-directory or `settings.json` check — both are created lazily on explicit user action, not on a bare launch, so there's nothing to observe from launch alone. Source: spec step 5 (corrected 2026-08-03).
 - Teardown (stop process, run uninstaller, check cleanup) must run even if earlier checks fail — wrap in try/catch/finally, not a bare try that lets exceptions escape uncaught. Source: spec step 6, "Safety."
 
