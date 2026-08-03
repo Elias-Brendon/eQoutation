@@ -66,18 +66,6 @@ export function Tabs<T extends string>({
     }
   }, [updateArrows, updateEdgeSpacers, items.length])
 
-  // Center the active tab whenever it changes — programmatic resets included,
-  // not just clicks — so the current panel always sits in the middle with
-  // its neighbors peeking on either side.
-  useEffect(() => {
-    const el = scrollRef.current
-    const button = el?.querySelector<HTMLButtonElement>(`[data-tab-value="${value}"]`)
-    if (!el || !button) return
-    const target = button.offsetLeft + button.offsetWidth / 2 - el.clientWidth / 2
-    el.scrollTo({ left: target, behavior: 'smooth' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, startSpacer, endSpacer])
-
   const scrollByOneTab = (direction: 1 | -1): void => {
     const el = scrollRef.current
     if (!el) return
