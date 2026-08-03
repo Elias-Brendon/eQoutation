@@ -6,6 +6,7 @@ import {
   type UseQueryResult
 } from '@tanstack/react-query'
 import type { SecretKeyName, TestApiKeyResult } from '@shared/types/entities'
+import { settingsQueryKey } from './useSettings'
 
 const apiKeyMaskedQueryKey = (keyName: SecretKeyName): readonly [string, string, SecretKeyName] =>
   ['secrets', 'apiKeyMasked', keyName] as const
@@ -26,8 +27,14 @@ export function useSetApiKey(keyName: SecretKeyName): UseMutationResult<void, Er
 }
 
 export function useTestApiKey(keyName: SecretKeyName): UseMutationResult<TestApiKeyResult, Error, string> {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (key) => window.api.secrets.testApiKey(keyName, key)
+    mutationFn: (key) => window.api.secrets.testApiKey(keyName, key),
+    onSuccess: (result) => {
+      if (result.ok && result.models) {
+        queryClient.invalidateQueries({ queryKey: settingsQueryKey })
+      }
+    }
   })
 }
 

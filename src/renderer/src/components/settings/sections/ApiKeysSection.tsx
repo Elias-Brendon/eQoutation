@@ -15,7 +15,7 @@ export function ApiKeysSection(): React.JSX.Element {
       <ApiKeyField
         keyName="anthropicApiKey"
         label="Anthropic API Key"
-        description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except Anthropic's API."
+        description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except Anthropic's API. Testing the connection also refreshes the model list in Settings > AI Model."
         placeholder="sk-ant-…"
       />
     </div>

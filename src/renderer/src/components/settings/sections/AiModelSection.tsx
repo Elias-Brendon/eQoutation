@@ -21,7 +21,7 @@ export function AiModelSection(): React.JSX.Element {
           onChange={(e) => updateSettings.mutate({ aiModel: e.target.value })}
           className="h-9 w-full max-w-96 rounded-md border border-border-strong bg-surface px-3 text-sm text-text-primary focus:border-accent focus:outline-none"
         >
-          {AVAILABLE_AI_MODELS.map((model) => (
+          {(settings?.cachedAiModels ?? AVAILABLE_AI_MODELS).map((model) => (
             <option key={model.id} value={model.id}>
               {model.label}
             </option>
