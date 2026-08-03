@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerAllIpc } from './ipc'
 import { refreshStaleProjectExchangeRates } from './fx/refreshProjectExchangeRates'
 import { registerCrashHandlers, registerWindowCrashHandlers } from './observability/crashHandlers'
+import { checkForUpdate } from './updateCheck/updateCheck'
 
 // Dev-only key loading; production should use the OS keychain instead (see plan risk #5).
 loadEnv()
@@ -70,6 +71,9 @@ app.whenReady().then(() => {
   // blocks startup, and fetchLiveRate's own cache keeps this to at most one
   // Frankfurter call per currency per day regardless of launch frequency.
   refreshStaleProjectExchangeRates().catch(() => {})
+
+  // Best-effort update check — never blocks startup; see updateCheck.ts.
+  checkForUpdate(app.getVersion()).catch(() => {})
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

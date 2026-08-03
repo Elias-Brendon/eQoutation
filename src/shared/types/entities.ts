@@ -418,3 +418,9 @@ export interface ExtractionProgressEvent {
   pct: number
   stage: string
 }
+
+export interface UpdateStatus {
+  currentVersion: string
+  latestVersion: string
+  isNewer: boolean
+}
