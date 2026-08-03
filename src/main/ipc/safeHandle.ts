@@ -1,5 +1,6 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { AppError } from '../errors/AppError'
+import { logEvent } from '../db/repositories/eventLogRepo'
 
 type Handler<Args extends unknown[], R> = (
   event: IpcMainInvokeEvent,
@@ -22,6 +23,12 @@ export function safeHandle<Args extends unknown[], R>(
     } catch (error) {
       if (error instanceof AppError) throw error
       console.error(`[ipc:${channel}]`, error)
+      logEvent({
+        level: 'error',
+        source: `ipc:${channel}`,
+        message: error instanceof Error ? error.message : String(error),
+        context: error instanceof Error ? { stack: error.stack } : undefined
+      })
       throw new AppError('GEN_UNEXPECTED')
     }
   })
