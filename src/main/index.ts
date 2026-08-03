@@ -5,6 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerAllIpc } from './ipc'
 import { refreshStaleProjectExchangeRates } from './fx/refreshProjectExchangeRates'
+import { registerCrashHandlers, registerWindowCrashHandlers } from './observability/crashHandlers'
 
 // Dev-only key loading; production should use the OS keychain instead (see plan risk #5).
 loadEnv()
@@ -35,6 +36,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  registerWindowCrashHandlers(mainWindow.webContents)
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -59,6 +62,7 @@ app.whenReady().then(() => {
   })
 
   registerAllIpc()
+  registerCrashHandlers()
 
   createWindow()
 
