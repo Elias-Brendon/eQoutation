@@ -10,12 +10,17 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-$InstallDir = Join-Path $env:LOCALAPPDATA 'Programs\eQuotation'
-$UserDataDir = Join-Path $env:APPDATA 'eqoutation'
+$InstallDir = Join-Path $env:LOCALAPPDATA 'Programs\eqoutation'
 $StartMenuShortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\eQuotation.lnk'
 $DesktopShortcut = Join-Path $env:USERPROFILE 'Desktop\eQuotation.lnk'
 $InstalledExe = Join-Path $InstallDir 'eQuotation.exe'
-$DbPath = Join-Path $UserDataDir 'eqoutation.sqlite'
+
+# Never point the installed app at the real %APPDATA%\eqoutation - that
+# path holds this machine's actual dev data (real DB, settings, secrets,
+# projects). Redirect everything to a synthetic, script-owned directory
+# via Electron's --user-data-dir switch instead.
+$TestUserDataDir = Join-Path ([System.IO.Path]::GetTempPath()) 'eqoutation-installer-verify'
+$DbPath = Join-Path $TestUserDataDir 'eqoutation.sqlite'
 
 $script:Failures = @()
 $script:AppProcess = $null
@@ -44,10 +49,13 @@ Write-Host "=== Pre-flight guard ===" -ForegroundColor Cyan
 if (Test-Path $InstallDir) {
     throw "Install dir already exists at $InstallDir - aborting to avoid touching a real install. Remove it manually first if this is intentional."
 }
-if (Test-Path $UserDataDir) {
-    throw "User data dir already exists at $UserDataDir - aborting to avoid touching real app data. Remove it manually first if this is intentional."
+if (Test-Path $TestUserDataDir) {
+    # Exclusively owned by this script (synthetic temp path) - safe to clear
+    # automatically, unlike a real install/userData location.
+    Remove-Item -Recurse -Force $TestUserDataDir
+    Write-Host "  Removed leftover isolated userData dir from a previous run."
 }
-Write-Host "  Clean - no existing install or user data found."
+Write-Host "  Clean - no existing install found; isolated userData dir ready."
 
 try {
     Write-Host "`n=== Build ===" -ForegroundColor Cyan
@@ -74,7 +82,7 @@ try {
     }
 
     Write-Host "`n=== Launch + runtime checks ===" -ForegroundColor Cyan
-    $script:AppProcess = Start-Process -FilePath $InstalledExe -PassThru
+    $script:AppProcess = Start-Process -FilePath $InstalledExe -ArgumentList "--user-data-dir=$TestUserDataDir" -PassThru
     Start-Sleep -Seconds 8
 
     $stillRunning = $false
@@ -88,7 +96,13 @@ try {
     Test-Check "Sqlite DB file created" (Test-Path $DbPath)
 
     if (Test-Path $DbPath) {
-        $schemaCount = node -e "const Database = require('better-sqlite3'); const db = new Database(process.argv[1], { readonly: true }); const row = db.prepare('SELECT COUNT(*) as c FROM schema_version').get(); console.log(row.c); db.close();" "$DbPath"
+        # The repo's better-sqlite3 native binary is rebuilt against Electron's
+        # Node ABI (via electron-builder install-app-deps), not the system
+        # node's ABI - so it must be loaded through electron itself in
+        # Node-compat mode, same technique as the "test:db" npm script.
+        $env:ELECTRON_RUN_AS_NODE = '1'
+        $schemaCount = & 'node_modules\.bin\electron.cmd' -e "const Database = require('better-sqlite3'); const db = new Database(process.argv[1], { readonly: true }); const row = db.prepare('SELECT COUNT(*) as c FROM schema_version').get(); console.log(row.c); db.close();" "$DbPath"
+        Remove-Item Env:\ELECTRON_RUN_AS_NODE
         Test-Check "schema_version has migration rows" ([int]$schemaCount -gt 0)
     } else {
         Test-Check "schema_version has migration rows" $false
@@ -119,8 +133,10 @@ try {
     Test-Check "Desktop shortcut removed" (-not (Test-Path $DesktopShortcut))
     Test-Check "Registry uninstall entry removed" ($null -eq (Get-UninstallRegistryEntry))
 
-    if (Test-Path $UserDataDir) {
-        Write-Host "  [INFO] User data at $UserDataDir survived uninstall - expected Windows app behavior, not a failure." -ForegroundColor Yellow
+    if (Test-Path $TestUserDataDir) {
+        Write-Host "  [INFO] Isolated userData dir survived uninstall - expected Windows app behavior (uninstaller never deletes userData), not a failure." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force $TestUserDataDir -ErrorAction SilentlyContinue
+        Write-Host "  Cleaned up isolated userData dir (script's own housekeeping, not the uninstaller's job)."
     }
 }
 
