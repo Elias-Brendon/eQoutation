@@ -41,7 +41,8 @@ function defaultSettings(): AppSettings {
     defaultMargin: 1.35,
     fontScale: 'md',
     annotationFontSize: 12,
-    dismissedUpdateVersion: null
+    dismissedUpdateVersion: null,
+    cachedAiModels: null
   }
 }
 
@@ -71,7 +72,8 @@ export function getSettings(): AppSettings {
       defaultMargin: parsed.defaultMargin ?? defaults.defaultMargin,
       fontScale: parsed.fontScale ?? defaults.fontScale,
       annotationFontSize: parsed.annotationFontSize ?? defaults.annotationFontSize,
-      dismissedUpdateVersion: parsed.dismissedUpdateVersion ?? defaults.dismissedUpdateVersion
+      dismissedUpdateVersion: parsed.dismissedUpdateVersion ?? defaults.dismissedUpdateVersion,
+      cachedAiModels: parsed.cachedAiModels ?? defaults.cachedAiModels
     }
   } catch {
     return defaults

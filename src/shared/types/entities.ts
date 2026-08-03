@@ -72,6 +72,8 @@ export interface AppSettings {
   annotationFontSize: number
   /** Latest version the user dismissed the "update available" notice for — null if never dismissed. */
   dismissedUpdateVersion: string | null
+  /** Latest model list fetched from Anthropic via "Test connection" — null until a key has ever been tested successfully. */
+  cachedAiModels: { id: string; label: string }[] | null
 }
 
 export interface ChangePasswordInput {
@@ -82,6 +84,7 @@ export interface ChangePasswordInput {
 export interface TestApiKeyResult {
   ok: boolean
   error?: string
+  models?: { id: string; label: string }[]
 }
 
 export interface PickCatalogDirResult {
