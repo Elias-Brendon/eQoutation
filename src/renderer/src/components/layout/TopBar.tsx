@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Archive, Database, Flag, Info, Loader2, Plus, RefreshCw, Upload, User } from 'lucide-react'
+import {
+  Archive,
+  Database,
+  Download,
+  Flag,
+  Info,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Upload,
+  User,
+  X
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Logo } from '@renderer/components/animation/Logo'
 import { Button } from '@renderer/components/common/Button'
@@ -7,6 +19,8 @@ import { cn } from '@renderer/lib/cn'
 import { useUpdateProjectCurrencySettings } from '@renderer/state/queries/useProjects'
 import { useFxRate } from '@renderer/state/queries/useFx'
 import { useProjectTokenUsage } from '@renderer/state/queries/useAiUsage'
+import { useUpdateCheck } from '@renderer/state/queries/useApp'
+import { useSettings, useUpdateSettings } from '@renderer/state/queries/useSettings'
 import { CURRENCIES } from '@shared/constants/currencies'
 import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
 
@@ -108,6 +122,7 @@ export function TopBar({
         <FlagBadge tone="text-warning" count={matcherFlagCount} label="Matcher" compact={compact} />
         <FlagBadge tone="text-danger" count={aiFlagCount} label="AI" compact={compact} />
         <FlagBadge tone="text-warning" count={manualFlagCount} label="Manual" compact={compact} />
+        <UpdateNotice />
       </div>
 
       <Button
@@ -376,5 +391,38 @@ function FlagBadge({ tone, count, label, compact }: FlagBadgeProps): React.JSX.E
       </AnimatePresence>
       {!compact && label}
     </span>
+  )
+}
+
+function UpdateNotice(): React.JSX.Element | null {
+  const { data: status } = useUpdateCheck()
+  const { data: settings } = useSettings()
+  const updateSettings = useUpdateSettings()
+
+  if (!status?.isNewer) return null
+  if (settings?.dismissedUpdateVersion === status.latestVersion) return null
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent">
+      <Download className="h-3 w-3" />
+      <a
+        href="https://github.com/Elias-Brendon/Qoutation/releases"
+        target="_blank"
+        rel="noreferrer"
+        title={`Version ${status.latestVersion} is available — opens the Releases page`}
+        className="hover:underline"
+      >
+        v{status.latestVersion} available
+      </a>
+      <button
+        type="button"
+        onClick={() => updateSettings.mutate({ dismissedUpdateVersion: status.latestVersion })}
+        title="Dismiss until the next update"
+        aria-label="Dismiss update notice"
+        className="text-accent/70 hover:text-accent"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   )
 }
