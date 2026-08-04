@@ -1,7 +1,13 @@
 import { BREAKER_TYPES, OTHER_COMPONENT_TYPES } from '@shared/constants/componentTypes'
 import type { ExtractedComponent, ExtractionFlag } from '@shared/types/entities'
 
-export function buildExtractionSystemPrompt(
+// The extraction rules themselves — steps, description formatting, sizing
+// tables, catalog glossary, company rules. Deliberately contains no
+// role-framing ("You are a…"), no "go through every page" imperative and no
+// "respond only with…" closer, so it can be embedded as reference material
+// inside another task's prompt (see `buildVerificationSystemPrompt`) without
+// re-defining the model's role or telling it to extract everything again.
+export function buildExtractionRulesSection(
   enabledComponentTypes: string[],
   catalogDescriptions: string[],
   preferredBrands: string[] = [],
@@ -33,15 +39,7 @@ export function buildExtractionSystemPrompt(
     ? `\n## Known catalog descriptions (reference glossary)\n\nThese are descriptions already in our parts catalog${preferredBrands.length ? ' (preferred-brand descriptions listed first)' : ''}.\nWhen a component you're describing matches one of these (or is a close\nvariant), phrase your description to match the catalog wording as closely\nas the drawing allows — this is what lets the app auto-match your\nextraction to a priced catalog item. Don't force a match that isn't real;\nonly use these as a style/wording reference, never invent a rating or spec\nthat isn't on the drawing.\n${preferredBrandsLine}\n${catalogDescriptions.join('\n')}\n`
     : preferredBrandsLine
 
-  return `You are a BOM-extraction agent for a low-voltage switchboard manufacturer,
-reading Single Line Diagrams (SLDs) to build a bill of materials for a
-quotation.
-
-Go through every page image below, in order (each is labeled "Page N"
-immediately before it). A single page may contain multiple panels —
-process every one.
-
-## Step 1 — Identify the panel(s) to manufacture
+  return `## Step 1 — Identify the panel(s) to manufacture
 
 A panel to be manufactured is indicated by a dashed rectangular bounding box
 around the SLD. The panel name is usually at the bottom-right corner of the
@@ -247,7 +245,31 @@ inconsistent (e.g. a rating that doesn't match a labeled cable size), a
 SPARE item, an inferred (not drawing-stated) busbar/cable choice or size, a
 panel with no name found, or anything else a human should double-check
 before pricing it. Never invent a rating — if a value is illegible or
-missing, omit it from the description and flag it instead.
+missing, omit it from the description and flag it instead.`
+}
+
+export function buildExtractionSystemPrompt(
+  enabledComponentTypes: string[],
+  catalogDescriptions: string[],
+  preferredBrands: string[] = [],
+  customRules: string[] = []
+): string {
+  const rules = buildExtractionRulesSection(
+    enabledComponentTypes,
+    catalogDescriptions,
+    preferredBrands,
+    customRules
+  )
+
+  return `You are a BOM-extraction agent for a low-voltage switchboard manufacturer,
+reading Single Line Diagrams (SLDs) to build a bill of materials for a
+quotation.
+
+Go through every page image below, in order (each is labeled "Page N"
+immediately before it). A single page may contain multiple panels —
+process every one.
+
+${rules}
 
 Respond only with the structured extraction — no prose.`
 }
@@ -260,18 +282,25 @@ export function buildVerificationSystemPrompt(
   draftComponents: ExtractedComponent[],
   draftFlags: ExtractionFlag[]
 ): string {
-  const extractionRules = buildExtractionSystemPrompt(
+  // Only the rules — not `buildExtractionSystemPrompt`'s full output, which
+  // would embed a second "you are a BOM-extraction agent / extract every
+  // component / respond only with the structured extraction" framing and
+  // invite a full re-extraction into `missedComponents`.
+  const extractionRules = buildExtractionRulesSection(
     enabledComponentTypes,
     catalogDescriptions,
     preferredBrands,
     customRules
   )
 
+  // The quantity has to be shown: identical items are grouped into one line,
+  // so without it a "×6" line reads as a single item and the six on the
+  // drawing look like five missing ones.
   const draftSummary = draftComponents.length
     ? draftComponents
         .map(
           (c) =>
-            `- [Page ${c.pageNumber}, ${c.panelName}] ${c.description}${c.tag ? ` (tag: ${c.tag})` : ''}`
+            `- [Page ${c.pageNumber}, ${c.panelName}] ×${c.qty} ${c.description}${c.tag ? ` (tag: ${c.tag})` : ''}`
         )
         .join('\n')
     : '(none)'
@@ -287,6 +316,11 @@ already correct and complete unless you find a specific, concrete problem
 with it.
 
 ## What was already extracted
+
+Each line is one BOM line, not one physical item: \`×N\` is the quantity
+already extracted for it. Identical items in the same panel are grouped, so
+a line reading "×6" already accounts for all six of those on the drawing —
+that is not five missing items.
 
 ${draftSummary}
 
@@ -307,13 +341,26 @@ ${flagSummary}
    cable size that doesn't match a stated busbar/cable choice, a pole
    count that doesn't match the breaker type). Do NOT edit the original
    list — instead, add an \`additionalFlags\` entry describing the
-   inconsistency so a human can resolve it.
+   inconsistency so a human can resolve it. Do not repeat any flag already
+   listed under "What was already flagged" above — spares, inferred
+   busbar/cable sizes, unnamed panels and illegible values are already
+   flagged wherever that list says so, and re-reporting them just
+   duplicates work for the human reviewer.
 3. If you find nothing to add in either category, return empty arrays for
    both. Do not invent problems to report — only real, specific ones.
 
 ## Reference: the same rules the first pass followed
 
+These are description-formatting and business rules only — reference
+material for phrasing anything you add. They are not an instruction to
+extract the drawing again, and nothing already listed above needs to be
+re-derived from them.
+
 ${extractionRules}
+
+Remember: you are reviewing, not re-extracting. \`missedComponents\` is only
+for components genuinely absent from the list above, and \`additionalFlags\`
+only for problems not already flagged above.
 
 Respond only with the structured verification result — no prose.`
 }
