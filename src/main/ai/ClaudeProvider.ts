@@ -1,7 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { AIProvider, ExtractParams, ExtractionResult } from './AIProvider'
-import { buildExtractionJsonSchema, normalizeExtractionPayload } from './extractionSchema'
-import { buildExtractionSystemPrompt } from './promptTemplates'
+import {
+  buildExtractionJsonSchema,
+  buildVerificationJsonSchema,
+  normalizeExtractionPayload,
+  normalizeVerificationPayload
+} from './extractionSchema'
+import { buildExtractionSystemPrompt, buildVerificationSystemPrompt } from './promptTemplates'
 import { renderPdfPagesToImages } from './pdfRenderer'
 import { AppError } from '../errors/AppError'
 import { formatErrorCode } from '@shared/errors/errorCodes'
@@ -137,16 +142,70 @@ export class ClaudeProvider implements AIProvider {
     }
     const { components, flags } = normalizeExtractionPayload(parsed)
 
+    let totalUsage = {
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens
+    }
+
+    onProgress?.({ pct: 95, stage: 'Verifying' })
+
+    try {
+      const verificationStream = this.client.messages.stream({
+        model: this.model,
+        max_tokens: MAX_TOKENS,
+        thinking: { type: 'disabled' },
+        system: buildVerificationSystemPrompt(
+          enabledComponentTypes,
+          catalogDescriptions,
+          preferredBrands,
+          customRules,
+          components,
+          flags
+        ),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              ...pageContentBlocks,
+              {
+                type: 'text',
+                text: 'Review the page images against the already-extracted list as described in the system prompt.'
+              }
+            ]
+          }
+        ],
+        output_config: {
+          format: { type: 'json_schema', schema: buildVerificationJsonSchema(enabledComponentTypes) }
+        }
+      })
+      const verificationMessage = await verificationStream.finalMessage()
+      totalUsage = {
+        inputTokens: totalUsage.inputTokens + verificationMessage.usage.input_tokens,
+        outputTokens: totalUsage.outputTokens + verificationMessage.usage.output_tokens
+      }
+
+      const verificationTextBlock = verificationMessage.content.find(
+        (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
+      )
+      if (verificationTextBlock) {
+        const verificationParsed = JSON.parse(verificationTextBlock.text)
+        const { missedComponents, additionalFlags } = normalizeVerificationPayload(verificationParsed)
+        components.push(...missedComponents)
+        flags.push(...additionalFlags)
+      }
+    } catch (error) {
+      // Verification is an accuracy enhancement, not a hard requirement —
+      // a failure here must never waste an already-successful first pass.
+      console.error('[ai:verifyExtraction]', error)
+    }
+
     onProgress?.({ pct: 100, stage: 'Done' })
 
     return {
       model: this.model,
       components,
       flags,
-      usage: {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens
-      }
+      usage: totalUsage
     }
   }
 }
