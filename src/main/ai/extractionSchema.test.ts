@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeExtractionPayload } from './extractionSchema'
+import { normalizeExtractionPayload, normalizeComponent, normalizeFlag } from './extractionSchema'
 
 describe('normalizeExtractionPayload boundingBox handling', () => {
   it('passes through a valid boundingBox on a component', () => {
@@ -74,5 +74,35 @@ describe('normalizeExtractionPayload boundingBox handling', () => {
     })
     expect(result.flags[0].boundingBox).toEqual({ x: 0, y: 0, width: 0.2, height: 0.1 })
     expect(result.flags[1].boundingBox).toBeNull()
+  })
+})
+
+describe('normalizeComponent', () => {
+  it('fills in defaults for a minimal input', () => {
+    const result = normalizeComponent({ description: 'MCCB' })
+    expect(result).toEqual({
+      description: 'MCCB',
+      qty: 1,
+      uom: '',
+      tag: '',
+      pageNumber: 1,
+      panelName: 'UNKNOWN',
+      componentType: '',
+      confidence: 0,
+      notes: '',
+      boundingBox: null
+    })
+  })
+
+  it('clamps confidence to the 0-1 range', () => {
+    expect(normalizeComponent({ confidence: 5 }).confidence).toBe(1)
+    expect(normalizeComponent({ confidence: -2 }).confidence).toBe(0)
+  })
+})
+
+describe('normalizeFlag', () => {
+  it('defaults severity to info for anything other than warning', () => {
+    expect(normalizeFlag({ message: 'x', severity: 'danger' }).severity).toBe('info')
+    expect(normalizeFlag({ message: 'x', severity: 'warning' }).severity).toBe('warning')
   })
 })
