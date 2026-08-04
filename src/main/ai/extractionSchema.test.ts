@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeExtractionPayload, normalizeComponent, normalizeFlag } from './extractionSchema'
+import { normalizeExtractionPayload, normalizeComponent, normalizeFlag, normalizeVerificationPayload } from './extractionSchema'
 
 describe('normalizeExtractionPayload boundingBox handling', () => {
   it('passes through a valid boundingBox on a component', () => {
@@ -104,5 +104,26 @@ describe('normalizeFlag', () => {
   it('defaults severity to info for anything other than warning', () => {
     expect(normalizeFlag({ message: 'x', severity: 'danger' }).severity).toBe('info')
     expect(normalizeFlag({ message: 'x', severity: 'warning' }).severity).toBe('warning')
+  })
+})
+
+describe('normalizeVerificationPayload', () => {
+  it('normalizes missedComponents and additionalFlags the same way as the draft payload', () => {
+    const result = normalizeVerificationPayload({
+      missedComponents: [{ description: 'Missed MCB', confidence: 0.8 }],
+      additionalFlags: [{ message: 'Inconsistent rating', severity: 'warning', pageNumber: 2 }]
+    })
+    expect(result.missedComponents).toHaveLength(1)
+    expect(result.missedComponents[0].description).toBe('Missed MCB')
+    expect(result.missedComponents[0].confidence).toBe(0.8)
+    expect(result.additionalFlags).toHaveLength(1)
+    expect(result.additionalFlags[0].message).toBe('Inconsistent rating')
+    expect(result.additionalFlags[0].severity).toBe('warning')
+  })
+
+  it('returns empty arrays when the payload has neither field', () => {
+    const result = normalizeVerificationPayload({})
+    expect(result.missedComponents).toEqual([])
+    expect(result.additionalFlags).toEqual([])
   })
 })

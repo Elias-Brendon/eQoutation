@@ -170,3 +170,36 @@ export function normalizeExtractionPayload(parsed: unknown): RawExtractionPayloa
     flags: flags.map(normalizeFlag)
   }
 }
+
+// Verification pass response: only what pass 1 might have missed or gotten
+// inconsistent — never a full replacement list. See
+// docs/superpowers/specs/2026-08-03-vision-accuracy-verification-pass-design.md.
+export function buildVerificationJsonSchema(
+  enabledComponentTypes: string[]
+): Record<string, unknown> {
+  return {
+    type: 'object',
+    properties: {
+      missedComponents: { type: 'array', items: buildComponentItemSchema(enabledComponentTypes) },
+      additionalFlags: { type: 'array', items: buildFlagItemSchema() }
+    },
+    required: ['missedComponents', 'additionalFlags'],
+    additionalProperties: false
+  }
+}
+
+interface RawVerificationPayload {
+  missedComponents: ExtractedComponent[]
+  additionalFlags: ExtractionFlag[]
+}
+
+export function normalizeVerificationPayload(parsed: unknown): RawVerificationPayload {
+  const obj = parsed as Partial<RawVerificationPayload> | null
+  const missedComponents = Array.isArray(obj?.missedComponents) ? obj.missedComponents : []
+  const additionalFlags = Array.isArray(obj?.additionalFlags) ? obj.additionalFlags : []
+
+  return {
+    missedComponents: missedComponents.map(normalizeComponent),
+    additionalFlags: additionalFlags.map(normalizeFlag)
+  }
+}
