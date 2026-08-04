@@ -149,6 +149,12 @@ export class ClaudeProvider implements AIProvider {
 
     onProgress?.({ pct: 95, stage: 'Verifying' })
 
+    let verifyPct = 95
+    const verifyTicker = setInterval(() => {
+      verifyPct = Math.min(99, verifyPct + 1)
+      onProgress?.({ pct: verifyPct, stage: 'Verifying' })
+    }, PROGRESS_TICK_MS)
+
     try {
       const verificationStream = this.client.messages.stream({
         model: this.model,
@@ -197,6 +203,8 @@ export class ClaudeProvider implements AIProvider {
       // Verification is an accuracy enhancement, not a hard requirement —
       // a failure here must never waste an already-successful first pass.
       console.error('[ai:verifyExtraction]', error)
+    } finally {
+      clearInterval(verifyTicker)
     }
 
     onProgress?.({ pct: 100, stage: 'Done' })
