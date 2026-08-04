@@ -1,4 +1,5 @@
 import { BREAKER_TYPES, OTHER_COMPONENT_TYPES } from '@shared/constants/componentTypes'
+import type { ExtractedComponent, ExtractionFlag } from '@shared/types/entities'
 
 export function buildExtractionSystemPrompt(
   enabledComponentTypes: string[],
@@ -249,4 +250,70 @@ before pricing it. Never invent a rating — if a value is illegible or
 missing, omit it from the description and flag it instead.
 
 Respond only with the structured extraction — no prose.`
+}
+
+export function buildVerificationSystemPrompt(
+  enabledComponentTypes: string[],
+  catalogDescriptions: string[],
+  preferredBrands: string[],
+  customRules: string[],
+  draftComponents: ExtractedComponent[],
+  draftFlags: ExtractionFlag[]
+): string {
+  const extractionRules = buildExtractionSystemPrompt(
+    enabledComponentTypes,
+    catalogDescriptions,
+    preferredBrands,
+    customRules
+  )
+
+  const draftSummary = draftComponents.length
+    ? draftComponents
+        .map(
+          (c) =>
+            `- [Page ${c.pageNumber}, ${c.panelName}] ${c.description}${c.tag ? ` (tag: ${c.tag})` : ''}`
+        )
+        .join('\n')
+    : '(none)'
+
+  const flagSummary = draftFlags.length
+    ? draftFlags.map((f) => `- [Page ${f.pageNumber}] ${f.message}`).join('\n')
+    : '(none)'
+
+  return `You are reviewing a first-pass BOM extraction from the same Single Line
+Diagram page images, to catch anything the first pass missed or got
+inconsistent. You are NOT re-extracting from scratch — the list below is
+already correct and complete unless you find a specific, concrete problem
+with it.
+
+## What was already extracted
+
+${draftSummary}
+
+## What was already flagged
+
+${flagSummary}
+
+## Your task
+
+1. Look through every page image again for any component that is visible
+   on the drawing but is NOT in the list above. For each one you find, add
+   it to \`missedComponents\`, following the exact same description
+   formatting, component-type recognition, and business rules below as the
+   first pass used — a missed component still needs to follow every rule
+   (breaker formatting, cable sizing, PFR expansion, etc.).
+2. Look for any item already in the list above whose rating looks
+   internally inconsistent with what's shown on its page (e.g. a noted
+   cable size that doesn't match a stated busbar/cable choice, a pole
+   count that doesn't match the breaker type). Do NOT edit the original
+   list — instead, add an \`additionalFlags\` entry describing the
+   inconsistency so a human can resolve it.
+3. If you find nothing to add in either category, return empty arrays for
+   both. Do not invent problems to report — only real, specific ones.
+
+## Reference: the same rules the first pass followed
+
+${extractionRules}
+
+Respond only with the structured verification result — no prose.`
 }
