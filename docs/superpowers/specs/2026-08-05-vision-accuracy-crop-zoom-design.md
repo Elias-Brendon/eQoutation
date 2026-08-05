@@ -45,8 +45,9 @@ New function: `renderPdfPanelCrop(pdfDoc, pageNumber, boundingBox, targetLongEdg
 Naively re-rendering a small panel at high detail means rendering the *whole page* at a proportionally huge scale and discarding most of it — wasteful in memory and time. Instead:
 
 1. Compute `cropScale` so the panel's longer physical dimension (`boundingBox`'s fraction × the page's point dimensions) maps to `targetLongEdgePx` — the same math `computeRenderScale` already does for whole pages, applied to the panel's size instead.
-2. Allocate a canvas sized to *only* the crop's resulting pixel dimensions, not the full scaled page.
-3. Use pdfjs's `page.render({ transform })` option to shift the render origin by `(-boundingBox.x * scaledPageWidth, -boundingBox.y * scaledPageHeight)`, so only the panel's content lands inside that small canvas. pdfjs still walks the full page's vector content internally, but only the crop-sized bitmap is ever materialized.
+2. Compute the panel's top-left corner in that scale's pixel space: `boxPxX = boundingBox.x * pageWidthPt * cropScale`, `boxPxY = boundingBox.y * pageHeightPt * cropScale` (consistent with the top-down, already-flipped image convention `boundingBox` already uses everywhere else in this codebase).
+3. Call `page.getViewport({ scale: cropScale, offsetX: -boxPxX, offsetY: -boxPxY })` — pdfjs's own built-in offset, expressed directly in output-pixel space, shifts the rendered origin so the panel's corner lands at the canvas's (0,0) without needing a separately-composed transform matrix.
+4. Allocate a canvas sized to *only* the crop's resulting pixel dimensions (`boundingBox.width * pageWidthPt * cropScale` × `boundingBox.height * pageHeightPt * cropScale`), not the full scaled page, and render into it with that viewport. pdfjs still walks the full page's vector content internally, but only the crop-sized bitmap is ever materialized.
 
 **Guardrails:**
 - `MAX_CROP_LONG_EDGE_PX = 2400` (higher than the whole-page `TARGET_LONG_EDGE_PX = 1568`, since more detail is the point, but capped) clamps the computed `cropScale` so a tiny panel box can't demand an arbitrarily large render.
