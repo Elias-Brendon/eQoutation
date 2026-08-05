@@ -7,7 +7,8 @@ import {
   normalizeVerificationPayload
 } from './extractionSchema'
 import { buildExtractionSystemPrompt, buildVerificationSystemPrompt } from './promptTemplates'
-import { renderPdfPagesToImages } from './pdfRenderer'
+import { loadPdfDocument, renderPdfPagesToImages } from './pdfRenderer'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { dedupeComponents, dedupeFlags } from './dedup'
 import { AppError } from '../errors/AppError'
 import { formatErrorCode } from '@shared/errors/errorCodes'
@@ -46,176 +47,182 @@ export class ClaudeProvider implements AIProvider {
     onProgress?.({ pct: 5, stage: 'Reading PDF' })
 
     onProgress?.({ pct: 10, stage: 'Rendering pages' })
+    let pdfDoc: PDFDocumentProxy
     let pages: { pageNumber: number; base64Png: string }[]
     try {
-      pages = await renderPdfPagesToImages(pdfBytes)
+      pdfDoc = await loadPdfDocument(pdfBytes)
+      pages = await renderPdfPagesToImages(pdfDoc)
     } catch (error) {
       console.error('[ai:renderPdfPagesToImages]', error)
       throw new AppError('AI_PAGE_RENDER_FAILED')
     }
 
-    onProgress?.({ pct: 15, stage: 'Sending to Claude' })
-
-    let pct = 20
-    const ticker = setInterval(() => {
-      pct = Math.min(PROGRESS_TICK_CAP, pct + 3)
-      onProgress?.({ pct, stage: 'Analyzing diagram' })
-    }, PROGRESS_TICK_MS)
-
-    const pageContentBlocks = pages.flatMap(
-      (page): Anthropic.Messages.ContentBlockParam[] => [
-        { type: 'text', text: `Page ${page.pageNumber}` },
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: 'image/png', data: page.base64Png }
-        }
-      ]
-    )
-
-    let message: Anthropic.Messages.Message
     try {
-      const stream = this.client.messages.stream({
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        // Extended thinking is on by default for this model and, left
-        // unbounded, consumes the entire token budget before any structured
-        // output is emitted. This task needs the budget spent on output.
-        thinking: { type: 'disabled' },
-        system: buildExtractionSystemPrompt(
-          enabledComponentTypes,
-          catalogDescriptions,
-          preferredBrands,
-          customRules
-        ),
-        messages: [
+      onProgress?.({ pct: 15, stage: 'Sending to Claude' })
+
+      let pct = 20
+      const ticker = setInterval(() => {
+        pct = Math.min(PROGRESS_TICK_CAP, pct + 3)
+        onProgress?.({ pct, stage: 'Analyzing diagram' })
+      }, PROGRESS_TICK_MS)
+
+      const pageContentBlocks = pages.flatMap(
+        (page): Anthropic.Messages.ContentBlockParam[] => [
+          { type: 'text', text: `Page ${page.pageNumber}` },
           {
-            role: 'user',
-            content: [
-              ...pageContentBlocks,
-              {
-                type: 'text',
-                text: 'Extract every component from this switchboard SLD as described in the system prompt.'
-              }
-            ]
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/png', data: page.base64Png }
           }
-        ],
-        output_config: {
-          format: { type: 'json_schema', schema: buildExtractionJsonSchema(enabledComponentTypes) }
-        }
-      })
-      message = await stream.finalMessage()
-    } catch (error) {
-      if (error instanceof Anthropic.RateLimitError) throw new AppError('AI_RATE_LIMITED')
-      if (error instanceof Anthropic.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
-      if (error instanceof Anthropic.APIConnectionError) throw new AppError('AI_UNREACHABLE')
-      console.error('[ai:extractComponents:DEBUG]', error)
-      throw new AppError('AI_REQUEST_FAILED')
-    } finally {
-      clearInterval(ticker)
-    }
+        ]
+      )
 
-    onProgress?.({ pct: 92, stage: 'Parsing response' })
-
-    if (message.stop_reason === 'max_tokens') {
-      throw new AppError('AI_EXTRACTION_TRUNCATED', {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens
-      })
-    }
-
-    const textBlock = message.content.find(
-      (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
-    )
-    if (!textBlock) {
-      throw new AppError('AI_RESPONSE_UNREADABLE', {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens
-      })
-    }
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(textBlock.text)
-    } catch {
-      throw new AppError('AI_RESPONSE_UNREADABLE', {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens
-      })
-    }
-    const { components, flags } = normalizeExtractionPayload(parsed)
-
-    let totalUsage = {
-      inputTokens: message.usage.input_tokens,
-      outputTokens: message.usage.output_tokens
-    }
-
-    onProgress?.({ pct: 95, stage: 'Verifying' })
-
-    let verifyPct = 95
-    const verifyTicker = setInterval(() => {
-      verifyPct = Math.min(99, verifyPct + 1)
-      onProgress?.({ pct: verifyPct, stage: 'Verifying' })
-    }, PROGRESS_TICK_MS)
-
-    try {
-      const verificationStream = this.client.messages.stream({
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        thinking: { type: 'disabled' },
-        system: buildVerificationSystemPrompt(
-          enabledComponentTypes,
-          catalogDescriptions,
-          preferredBrands,
-          customRules,
-          components,
-          flags
-        ),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              ...pageContentBlocks,
-              {
-                type: 'text',
-                text: 'Review the page images against the already-extracted list as described in the system prompt.'
-              }
-            ]
+      let message: Anthropic.Messages.Message
+      try {
+        const stream = this.client.messages.stream({
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          // Extended thinking is on by default for this model and, left
+          // unbounded, consumes the entire token budget before any structured
+          // output is emitted. This task needs the budget spent on output.
+          thinking: { type: 'disabled' },
+          system: buildExtractionSystemPrompt(
+            enabledComponentTypes,
+            catalogDescriptions,
+            preferredBrands,
+            customRules
+          ),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                ...pageContentBlocks,
+                {
+                  type: 'text',
+                  text: 'Extract every component from this switchboard SLD as described in the system prompt.'
+                }
+              ]
+            }
+          ],
+          output_config: {
+            format: { type: 'json_schema', schema: buildExtractionJsonSchema(enabledComponentTypes) }
           }
-        ],
-        output_config: {
-          format: { type: 'json_schema', schema: buildVerificationJsonSchema(enabledComponentTypes) }
-        }
-      })
-      const verificationMessage = await verificationStream.finalMessage()
-      totalUsage = {
-        inputTokens: totalUsage.inputTokens + verificationMessage.usage.input_tokens,
-        outputTokens: totalUsage.outputTokens + verificationMessage.usage.output_tokens
+        })
+        message = await stream.finalMessage()
+      } catch (error) {
+        if (error instanceof Anthropic.RateLimitError) throw new AppError('AI_RATE_LIMITED')
+        if (error instanceof Anthropic.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
+        if (error instanceof Anthropic.APIConnectionError) throw new AppError('AI_UNREACHABLE')
+        console.error('[ai:extractComponents:DEBUG]', error)
+        throw new AppError('AI_REQUEST_FAILED')
+      } finally {
+        clearInterval(ticker)
       }
 
-      const verificationTextBlock = verificationMessage.content.find(
+      onProgress?.({ pct: 92, stage: 'Parsing response' })
+
+      if (message.stop_reason === 'max_tokens') {
+        throw new AppError('AI_EXTRACTION_TRUNCATED', {
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens
+        })
+      }
+
+      const textBlock = message.content.find(
         (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
       )
-      if (verificationTextBlock) {
-        const verificationParsed = JSON.parse(verificationTextBlock.text)
-        const { missedComponents, additionalFlags } = normalizeVerificationPayload(verificationParsed)
-        components.push(...dedupeComponents(components, missedComponents))
-        flags.push(...dedupeFlags(flags, additionalFlags))
+      if (!textBlock) {
+        throw new AppError('AI_RESPONSE_UNREADABLE', {
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens
+        })
       }
-    } catch (error) {
-      // Verification is an accuracy enhancement, not a hard requirement —
-      // a failure here must never waste an already-successful first pass.
-      console.error('[ai:verifyExtraction]', error)
+
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(textBlock.text)
+      } catch {
+        throw new AppError('AI_RESPONSE_UNREADABLE', {
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens
+        })
+      }
+      const { components, flags } = normalizeExtractionPayload(parsed)
+
+      let totalUsage = {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens
+      }
+
+      onProgress?.({ pct: 95, stage: 'Verifying' })
+
+      let verifyPct = 95
+      const verifyTicker = setInterval(() => {
+        verifyPct = Math.min(99, verifyPct + 1)
+        onProgress?.({ pct: verifyPct, stage: 'Verifying' })
+      }, PROGRESS_TICK_MS)
+
+      try {
+        const verificationStream = this.client.messages.stream({
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          thinking: { type: 'disabled' },
+          system: buildVerificationSystemPrompt(
+            enabledComponentTypes,
+            catalogDescriptions,
+            preferredBrands,
+            customRules,
+            components,
+            flags
+          ),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                ...pageContentBlocks,
+                {
+                  type: 'text',
+                  text: 'Review the page images against the already-extracted list as described in the system prompt.'
+                }
+              ]
+            }
+          ],
+          output_config: {
+            format: { type: 'json_schema', schema: buildVerificationJsonSchema(enabledComponentTypes) }
+          }
+        })
+        const verificationMessage = await verificationStream.finalMessage()
+        totalUsage = {
+          inputTokens: totalUsage.inputTokens + verificationMessage.usage.input_tokens,
+          outputTokens: totalUsage.outputTokens + verificationMessage.usage.output_tokens
+        }
+
+        const verificationTextBlock = verificationMessage.content.find(
+          (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
+        )
+        if (verificationTextBlock) {
+          const verificationParsed = JSON.parse(verificationTextBlock.text)
+          const { missedComponents, additionalFlags } = normalizeVerificationPayload(verificationParsed)
+          components.push(...dedupeComponents(components, missedComponents))
+          flags.push(...dedupeFlags(flags, additionalFlags))
+        }
+      } catch (error) {
+        // Verification is an accuracy enhancement, not a hard requirement —
+        // a failure here must never waste an already-successful first pass.
+        console.error('[ai:verifyExtraction]', error)
+      } finally {
+        clearInterval(verifyTicker)
+      }
+
+      onProgress?.({ pct: 100, stage: 'Done' })
+
+      return {
+        model: this.model,
+        components,
+        flags,
+        usage: totalUsage
+      }
     } finally {
-      clearInterval(verifyTicker)
-    }
-
-    onProgress?.({ pct: 100, stage: 'Done' })
-
-    return {
-      model: this.model,
-      components,
-      flags,
-      usage: totalUsage
+      await pdfDoc.destroy()
     }
   }
 }
