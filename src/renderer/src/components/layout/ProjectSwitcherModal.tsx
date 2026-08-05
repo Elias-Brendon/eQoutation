@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import { Modal } from '@renderer/components/common/Modal'
 import { Badge } from '@renderer/components/common/Badge'
 import { cn } from '@renderer/lib/cn'
@@ -10,6 +10,7 @@ interface ProjectSwitcherModalProps {
   projects: Project[]
   selectedProjectId: string | null
   onSelectProject: (projectId: string) => void
+  onDeleteProject: (project: Project) => void
 }
 
 function formatCreatedAt(iso: string): string {
@@ -25,7 +26,8 @@ export function ProjectSwitcherModal({
   onClose,
   projects,
   selectedProjectId,
-  onSelectProject
+  onSelectProject,
+  onDeleteProject
 }: ProjectSwitcherModalProps): React.JSX.Element {
   const handleSelect = (projectId: string): void => {
     if (projectId !== selectedProjectId) onSelectProject(projectId)
@@ -41,12 +43,11 @@ export function ProjectSwitcherModal({
         {projects.map((project) => {
           const isActive = project.id === selectedProjectId
           return (
-            <button
+            <div
               key={project.id}
-              type="button"
               onClick={() => handleSelect(project.id)}
               className={cn(
-                'flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors',
+                'group flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors',
                 isActive
                   ? 'border-accent bg-accent/10'
                   : 'border-border bg-surface hover:bg-surface-hover'
@@ -61,13 +62,25 @@ export function ProjectSwitcherModal({
                   Created {formatCreatedAt(project.createdAt)}
                 </div>
               </div>
-              {isActive && (
-                <Badge tone="info" className="shrink-0">
-                  <Check className="h-3 w-3" />
-                  Active
-                </Badge>
-              )}
-            </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {isActive && (
+                  <Badge tone="info">
+                    <Check className="h-3 w-3" />
+                    Active
+                  </Badge>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDeleteProject(project)
+                  }}
+                  title="Delete project"
+                  className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-danger-bg hover:text-danger group-hover:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
           )
         })}
       </div>

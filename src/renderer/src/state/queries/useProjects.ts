@@ -66,3 +66,11 @@ export function useUpdateProjectDetails(): UseMutationResult<
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
   })
 }
+
+export function useDeleteProject(): UseMutationResult<void, Error, string> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (projectId: string) => window.api.projects.delete(projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQueryKey })
+  })
+}

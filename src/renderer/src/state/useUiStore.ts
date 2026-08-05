@@ -10,6 +10,7 @@ interface UiState {
   // being extracted, sourced from the ai:extractionProgress IPC push.
   extractionProgress: ExtractionProgressEvent | null
   selectProject: (projectId: string) => void
+  clearProject: () => void
   selectSld: (sldId: string, quotationId: string | null) => void
   clearSld: () => void
   selectQuotation: (quotationId: string, sldId: string) => void
@@ -26,6 +27,8 @@ export const useUiStore = create<UiState>((set) => ({
   extractionProgress: null,
   selectProject: (projectId): void =>
     set({ selectedProjectId: projectId, selectedSldId: null, selectedQuotationId: null }),
+  clearProject: (): void =>
+    set({ selectedProjectId: null, selectedSldId: null, selectedQuotationId: null }),
   selectSld: (sldId, quotationId): void =>
     set({ selectedSldId: sldId, selectedQuotationId: quotationId, panelMode: 'split' }),
   clearSld: (): void => set({ selectedSldId: null, selectedQuotationId: null }),

@@ -18,14 +18,14 @@ import { SettingsPage } from '@renderer/components/settings/SettingsPage'
 import { useUiStore } from '@renderer/state/useUiStore'
 import { useWindowWidth } from '@renderer/hooks/useWindowWidth'
 import { useKeyboardShortcuts } from '@renderer/hooks/useKeyboardShortcuts'
-import { useProjects } from '@renderer/state/queries/useProjects'
+import { useDeleteProject, useProjects } from '@renderer/state/queries/useProjects'
 import { useDeleteSld, useSlds, useUploadSld } from '@renderer/state/queries/useSlds'
 import { useDeleteQuotation, useQuotationsByProject } from '@renderer/state/queries/useQuotation'
 import { useOpenFlagCountsByProject } from '@renderer/state/queries/useFlags'
 import { useExportProject } from '@renderer/state/queries/useExport'
 import { useAuthStatus, useLogout } from '@renderer/state/queries/useAuth'
 import { useSettings } from '@renderer/state/queries/useSettings'
-import type { Quotation, Sld } from '@shared/types/entities'
+import type { Project, Quotation, Sld } from '@shared/types/entities'
 
 function App(): React.JSX.Element {
   const { data: authStatus, isLoading: authLoading } = useAuthStatus()
@@ -42,6 +42,7 @@ function App(): React.JSX.Element {
     selectedQuotationId,
     panelMode,
     selectProject,
+    clearProject,
     selectSld,
     selectQuotation,
     clearSld,
@@ -56,6 +57,7 @@ function App(): React.JSX.Element {
   const uploadSld = useUploadSld()
   const deleteSld = useDeleteSld()
   const deleteQuotation = useDeleteQuotation()
+  const deleteProject = useDeleteProject()
   const exportProject = useExportProject()
 
   const setExtractionProgress = useUiStore((s) => s.setExtractionProgress)
@@ -149,6 +151,15 @@ function App(): React.JSX.Element {
       projectId: selectedProject.id
     })
     if (selectedQuotationId === quotation.id) clearQuotation()
+  }
+
+  const handleDeleteProject = async (project: Project): Promise<void> => {
+    const confirmed = window.confirm(
+      `Delete project "${project.name}"? This permanently removes every SLD, quotation, and file in it — this can't be undone.`
+    )
+    if (!confirmed) return
+    await deleteProject.mutateAsync(project.id)
+    if (selectedProjectId === project.id) clearProject()
   }
 
   const shortcuts = useMemo(
@@ -273,6 +284,7 @@ function App(): React.JSX.Element {
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={selectProject}
+          onDeleteProject={handleDeleteProject}
         />
         <ProjectDetailsModal
           open={projectDetailsOpen}
