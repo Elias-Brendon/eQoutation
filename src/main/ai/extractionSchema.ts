@@ -1,11 +1,5 @@
 import type { AnnotationBoundingBox, ExtractedComponent, ExtractionFlag } from '@shared/types/entities'
 
-export interface ExtractedPanel {
-  pageNumber: number
-  panelName: string
-  boundingBox: AnnotationBoundingBox | null
-}
-
 const boundingBoxJsonSchema = {
   anyOf: [
     {
@@ -117,24 +111,6 @@ export function buildFlagItemSchema(): Record<string, unknown> {
   }
 }
 
-export function buildPanelItemSchema(): Record<string, unknown> {
-  return {
-    type: 'object',
-    properties: {
-      pageNumber: { type: 'integer', description: '1-based page this panel appears on' },
-      panelName: {
-        type: 'string',
-        description:
-          'The panel/BOM title, formatted as "<incomer rated current> <panel name>" ' +
-          '(e.g. "250A DB-G1") — same format as a component\'s panelName field.'
-      },
-      boundingBox: boundingBoxJsonSchema
-    },
-    required: ['pageNumber', 'panelName', 'boundingBox'],
-    additionalProperties: false
-  }
-}
-
 // JSON Schema passed as `output_config.format` on the Messages API — Claude's
 // response is constrained to match this shape exactly.
 export function buildExtractionJsonSchema(
@@ -144,10 +120,9 @@ export function buildExtractionJsonSchema(
     type: 'object',
     properties: {
       components: { type: 'array', items: buildComponentItemSchema(enabledComponentTypes) },
-      flags: { type: 'array', items: buildFlagItemSchema() },
-      panels: { type: 'array', items: buildPanelItemSchema() }
+      flags: { type: 'array', items: buildFlagItemSchema() }
     },
-    required: ['components', 'flags', 'panels'],
+    required: ['components', 'flags'],
     additionalProperties: false
   }
 }
@@ -180,31 +155,19 @@ export function normalizeFlag(raw: unknown): ExtractionFlag {
   }
 }
 
-export function normalizePanel(raw: unknown): ExtractedPanel {
-  const p = raw as Partial<ExtractedPanel> | null | undefined
-  return {
-    pageNumber: Number(p?.pageNumber) || 1,
-    panelName: String(p?.panelName ?? '').trim() || 'UNKNOWN',
-    boundingBox: validateBoundingBox(p?.boundingBox)
-  }
-}
-
 interface RawExtractionPayload {
   components: ExtractedComponent[]
   flags: ExtractionFlag[]
-  panels: ExtractedPanel[]
 }
 
 export function normalizeExtractionPayload(parsed: unknown): RawExtractionPayload {
   const obj = parsed as Partial<RawExtractionPayload> | null
   const components = Array.isArray(obj?.components) ? obj.components : []
   const flags = Array.isArray(obj?.flags) ? obj.flags : []
-  const panels = Array.isArray(obj?.panels) ? obj.panels : []
 
   return {
     components: components.map(normalizeComponent),
-    flags: flags.map(normalizeFlag),
-    panels: panels.map(normalizePanel)
+    flags: flags.map(normalizeFlag)
   }
 }
 
