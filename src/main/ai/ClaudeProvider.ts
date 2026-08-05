@@ -8,6 +8,7 @@ import {
 } from './extractionSchema'
 import { buildExtractionSystemPrompt, buildVerificationSystemPrompt } from './promptTemplates'
 import { renderPdfPagesToImages } from './pdfRenderer'
+import { dedupeComponents, dedupeFlags } from './dedup'
 import { AppError } from '../errors/AppError'
 import { formatErrorCode } from '@shared/errors/errorCodes'
 import type { TestApiKeyResult } from '@shared/types/entities'
@@ -197,8 +198,8 @@ export class ClaudeProvider implements AIProvider {
       if (verificationTextBlock) {
         const verificationParsed = JSON.parse(verificationTextBlock.text)
         const { missedComponents, additionalFlags } = normalizeVerificationPayload(verificationParsed)
-        components.push(...missedComponents)
-        flags.push(...additionalFlags)
+        components.push(...dedupeComponents(components, missedComponents))
+        flags.push(...dedupeFlags(flags, additionalFlags))
       }
     } catch (error) {
       // Verification is an accuracy enhancement, not a hard requirement —
