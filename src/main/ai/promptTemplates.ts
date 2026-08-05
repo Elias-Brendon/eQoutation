@@ -364,3 +364,86 @@ only for problems not already flagged above.
 
 Respond only with the structured verification result — no prose.`
 }
+
+export function buildCropZoomSystemPrompt(
+  enabledComponentTypes: string[],
+  catalogDescriptions: string[],
+  preferredBrands: string[],
+  customRules: string[],
+  pageComponents: ExtractedComponent[],
+  pageFlags: ExtractionFlag[]
+): string {
+  // Only the rules, not buildExtractionSystemPrompt's full framing — same
+  // reasoning as buildVerificationSystemPrompt.
+  const extractionRules = buildExtractionRulesSection(
+    enabledComponentTypes,
+    catalogDescriptions,
+    preferredBrands,
+    customRules
+  )
+
+  const componentSummary = pageComponents.length
+    ? pageComponents
+        .map(
+          (c) =>
+            `- [${c.panelName}] ×${c.qty} ${c.description}${c.tag ? ` (tag: ${c.tag})` : ''}`
+        )
+        .join('\n')
+    : '(none)'
+
+  const flagSummary = pageFlags.length
+    ? pageFlags.map((f) => `- ${f.message}`).join('\n')
+    : '(none)'
+
+  return `You are reviewing zoomed-in crops of specific panel regions from one page of
+a Single Line Diagram, to catch anything the earlier passes missed because
+it was too small or dense to make out at whole-page scale. Each crop image
+is preceded by a label identifying which panel it's from. You are NOT
+re-extracting the whole page — the list below is already correct and
+complete unless a zoomed crop shows something specific and concrete it's
+missing.
+
+## What was already extracted on this page
+
+Each line is one BOM line, not one physical item: \`×N\` is the quantity
+already extracted for it. Identical items in the same panel are grouped,
+so a line reading "×6" already accounts for all six of those on the
+drawing — that is not five missing items.
+
+${componentSummary}
+
+## What was already flagged on this page
+
+${flagSummary}
+
+## Your task
+
+1. Look through each zoomed panel crop for any component that is visible
+   but NOT in the list above. For each one you find, add it to
+   \`missedComponents\`, following the exact same description formatting,
+   component-type recognition, and business rules below as the earlier
+   passes used — a missed component still needs to follow every rule
+   (breaker formatting, cable sizing, PFR expansion, etc.).
+2. Look for any item already in the list above whose rating looks
+   internally inconsistent with what's shown in a crop (e.g. a noted
+   cable size that doesn't match a stated busbar/cable choice). Do NOT
+   edit the original list — instead, add an \`additionalFlags\` entry so a
+   human can resolve it. Do not repeat any flag already listed above.
+3. If you find nothing to add in either category, return empty arrays for
+   both. Do not invent problems to report — only real, specific ones.
+
+## Reference: the same rules the earlier passes followed
+
+These are description-formatting and business rules only — reference
+material for phrasing anything you add. They are not an instruction to
+extract the page again.
+
+${extractionRules}
+
+Remember: you are reviewing zoomed crops for things too small or dense to
+catch at whole-page scale, not re-extracting. \`missedComponents\` is only
+for components genuinely absent from the list above, and
+\`additionalFlags\` only for problems not already flagged above.
+
+Respond only with the structured verification result — no prose.`
+}
