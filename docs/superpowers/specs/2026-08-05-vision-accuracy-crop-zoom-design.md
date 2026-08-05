@@ -69,8 +69,13 @@ The geometric check is shared; the text-similarity check differs by shape (compo
 
 ```ts
 function boundingBoxesLikelyMatch(a: AnnotationBoundingBox | null, b: AnnotationBoundingBox | null): boolean
-// IoU >= DEDUP_IOU_THRESHOLD (0.3); if either box is null, falls back to
-// center-distance <= DEDUP_CENTER_DISTANCE (0.05, normalized page coords)
+// true if IoU >= DEDUP_IOU_THRESHOLD (0.3), or (if both boxes are present
+// but don't overlap enough) center-distance <= DEDUP_CENTER_DISTANCE (0.05,
+// normalized page coords). If EITHER box is null (a valid, common case —
+// see validateBoundingBox), there is no geometry to compare at all, so this
+// returns true (neutral/pass) rather than false — a missing box must not
+// rule a candidate OUT on its own; the page + text-similarity check below
+// carries the decision instead.
 
 function dedupeComponents(existing: ExtractedComponent[], candidates: ExtractedComponent[]): ExtractedComponent[]
 // drops a candidate when some existing component has the same pageNumber,
