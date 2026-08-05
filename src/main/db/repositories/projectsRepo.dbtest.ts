@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { closeDb } from '../index'
+import { closeDb, getDb } from '../index'
 import {
   createProject,
+  deleteProject,
   getProjectById,
   listProjects,
   updateProjectAiModelOverride,
@@ -93,5 +95,41 @@ describe('projectsRepo project details', () => {
     const project = createProject({ name: 'Test Project' })
     const updated = updateProjectDetails(project.id, { status: 'approved' })
     expect(updated.status).toBe('approved')
+  })
+})
+
+describe('deleteProject', () => {
+  it('cascades: deleting a project removes its slds, quotations, and quotation lines', () => {
+    const project = createProject({ name: 'To Delete' })
+    const db = getDb()
+    const now = new Date().toISOString()
+
+    const sldId = randomUUID()
+    db.prepare(
+      'INSERT INTO slds (id, project_id, filename, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(sldId, project.id, 'test.pdf', now, now)
+
+    const quotationId = randomUUID()
+    db.prepare(
+      "INSERT INTO quotations (id, sld_id, code, created_at, updated_at) VALUES (?, ?, 'Q-TEST', ?, ?)"
+    ).run(quotationId, sldId, now, now)
+
+    const lineId = randomUUID()
+    db.prepare(
+      `INSERT INTO quotation_lines
+         (id, quotation_id, catalog_item_id, description, match_status, match_confidence, created_at)
+       VALUES (?, ?, NULL, 'Test Line', 'matched', 1, ?)`
+    ).run(lineId, quotationId, now)
+
+    deleteProject(project.id)
+
+    expect(getProjectById(project.id)).toBeNull()
+    expect(db.prepare('SELECT * FROM slds WHERE id = ?').get(sldId)).toBeUndefined()
+    expect(db.prepare('SELECT * FROM quotations WHERE id = ?').get(quotationId)).toBeUndefined()
+    expect(db.prepare('SELECT * FROM quotation_lines WHERE id = ?').get(lineId)).toBeUndefined()
+  })
+
+  it('is a no-op for a nonexistent project id (no throw)', () => {
+    expect(() => deleteProject(randomUUID())).not.toThrow()
   })
 })

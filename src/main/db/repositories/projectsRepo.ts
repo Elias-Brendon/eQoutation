@@ -188,3 +188,7 @@ export function updateProjectDetails(
   }
   return getProjectById(id) as Project
 }
+
+export function deleteProject(id: string): void {
+  getDb().prepare('DELETE FROM projects WHERE id = ?').run(id)
+}
