@@ -5,7 +5,13 @@ import {
   type UseMutationResult,
   type UseQueryResult
 } from '@tanstack/react-query'
-import type { Quotation, QuotationComment } from '@shared/types/entities'
+import type {
+  AddQuotationLineInput,
+  NewCatalogItemInput,
+  Quotation,
+  QuotationComment,
+  QuotationLine
+} from '@shared/types/entities'
 import { sldsQueryKey } from './useSlds'
 import { flagsQueryKey, openFlagCountsQueryKey } from './useFlags'
 
@@ -155,6 +161,57 @@ export function useUpdatePanelMargin(): UseMutationResult<
       window.api.quotations.updatePanelMargin(quotationId, panelName, margin),
     onSuccess: (_data, { sldId }) => {
       queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    }
+  })
+}
+
+export function useAddQuotationLine(): UseMutationResult<
+  QuotationLine,
+  Error,
+  { quotationId: string; catalogItemId: string; input: AddQuotationLineInput; sldId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, catalogItemId, input }) =>
+      window.api.quotations.addLine(quotationId, catalogItemId, input),
+    onSuccess: (_line, { sldId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    }
+  })
+}
+
+export function useAddQuotationLineWithNewCatalogItem(): UseMutationResult<
+  QuotationLine,
+  Error,
+  {
+    quotationId: string
+    catalogInput: NewCatalogItemInput
+    input: AddQuotationLineInput
+    sldId: string
+  }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ quotationId, catalogInput, input }) =>
+      window.api.quotations.addLineWithNewCatalogItem(quotationId, catalogInput, input),
+    onSuccess: (_line, { sldId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
+    }
+  })
+}
+
+export function useRemoveQuotationLine(): UseMutationResult<
+  void,
+  Error,
+  { lineId: string; sldId: string; projectId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ lineId }) => window.api.quotations.removeLine(lineId),
+    onSuccess: (_data, { sldId, projectId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+      queryClient.invalidateQueries({ queryKey: openFlagCountsQueryKey(projectId) })
     }
   })
 }

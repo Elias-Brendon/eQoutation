@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Flag as FlagIcon, Loader2, Sparkles } from 'lucide-react'
+import { Flag as FlagIcon, Loader2, Plus, Sparkles } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
@@ -7,6 +7,7 @@ import { Tabs } from '@renderer/components/common/Tabs'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { CatalogResolveModal } from '@renderer/components/quotation/CatalogResolveModal'
 import { ConfidenceResolveDrawer } from '@renderer/components/quotation/ConfidenceResolveDrawer'
+import { AddLineModal } from '@renderer/components/quotation/AddLineModal'
 import {
   useGenerateQuotation,
   useQuotation,
@@ -146,6 +147,7 @@ export function QuotationTable({
   const [resolveLine, setResolveLine] = useState<QuotationLine | null>(null)
   const [confidenceLine, setConfidenceLine] = useState<QuotationLine | null>(null)
   const [activeTab, setActiveTab] = useState<string>(FULL_BOM_TAB)
+  const [addLineOpen, setAddLineOpen] = useState(false)
 
   // Tab selection is per-quotation, not persisted across switching SLDs/quotations.
   useEffect(() => {
@@ -259,19 +261,25 @@ export function QuotationTable({
             </span>
           </span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => generate.mutate(sldId)}
-          disabled={generate.isPending}
-        >
-          {generate.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="h-3.5 w-3.5" />
-          )}
-          Re-generate
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setAddLineOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Add line
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generate.mutate(sldId)}
+            disabled={generate.isPending}
+          >
+            {generate.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            Re-generate
+          </Button>
+        </div>
       </div>
 
       {panelNames.length > 1 && (
@@ -396,6 +404,19 @@ export function QuotationTable({
           projectId={projectId}
           line={confidenceLine}
           onFocusLine={onFocusLine}
+        />
+      )}
+
+      {addLineOpen && (
+        <AddLineModal
+          open
+          onClose={() => setAddLineOpen(false)}
+          quotationId={quotation.id}
+          sldId={sldId}
+          projectId={projectId}
+          panelNames={panelNames}
+          initialPageNumber={activeTab === FULL_BOM_TAB ? null : (visibleLines[0]?.pageNumber ?? null)}
+          initialPanelName={activeTab === FULL_BOM_TAB ? null : activeTab}
         />
       )}
     </div>
