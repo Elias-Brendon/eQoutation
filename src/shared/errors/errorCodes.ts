@@ -19,14 +19,14 @@ export const ERROR_CODES = {
   AUTH_CURRENT_PASSWORD_INCORRECT: { code: 'AUTH-010', message: 'Current password incorrect' },
 
   // AI extraction
-  AI_NO_API_KEY: { code: 'AI-001', message: 'Anthropic API key not set' },
-  AI_UNREACHABLE: { code: 'AI-002', message: 'Anthropic unreachable' },
-  AI_RATE_LIMITED: { code: 'AI-003', message: 'Anthropic rate limited' },
-  AI_INVALID_API_KEY: { code: 'AI-004', message: 'Anthropic API key rejected' },
+  AI_NO_API_KEY: { code: 'AI-001', message: 'AI API key not set' },
+  AI_UNREACHABLE: { code: 'AI-002', message: 'AI provider unreachable' },
+  AI_RATE_LIMITED: { code: 'AI-003', message: 'AI provider rate limited' },
+  AI_INVALID_API_KEY: { code: 'AI-004', message: 'AI API key rejected' },
   AI_EXTRACTION_TRUNCATED: { code: 'AI-005', message: 'Response too large, cut off' },
   AI_RESPONSE_UNREADABLE: { code: 'AI-006', message: 'Unreadable AI response' },
   AI_REQUEST_FAILED: { code: 'AI-007', message: 'Extraction failed' },
-  AI_KEY_TEST_FAILED: { code: 'AI-008', message: 'Anthropic key test failed' },
+  AI_KEY_TEST_FAILED: { code: 'AI-008', message: 'AI key test failed' },
   AI_ALREADY_EXTRACTED: { code: 'AI-009', message: 'SLD already extracted — re-extraction requires confirmation' },
   AI_PAGE_RENDER_FAILED: { code: 'AI-010', message: 'Could not render PDF pages for extraction' },
 

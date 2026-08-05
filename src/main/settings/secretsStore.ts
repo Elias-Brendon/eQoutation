@@ -10,7 +10,8 @@ type SecretsFile = Partial<Record<SecretKeyName, string>>
 // silently read a plaintext env var for a secret once the in-app key store
 // is available (see original build plan Risk #5).
 const DEV_ENV_FALLBACK: Record<SecretKeyName, string> = {
-  anthropicApiKey: 'ANTHROPIC_API_KEY'
+  anthropicApiKey: 'ANTHROPIC_API_KEY',
+  openaiCompatibleApiKey: 'OPENAI_COMPATIBLE_API_KEY'
 }
 
 function secretsFilePath(): string {

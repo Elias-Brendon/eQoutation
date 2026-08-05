@@ -64,6 +64,9 @@ export interface AppSettings {
   /** Free-text rules appended to every AI extraction prompt, alongside the built-in rules. */
   customExtractionRules: string[]
   aiModel: string
+  aiProvider: 'anthropic' | 'openai-compatible'
+  openaiCompatibleBaseUrl: string
+  openaiCompatibleModel: string
   confidenceThreshold: number
   maxExtractionRetries: number
   defaultMargin: number
@@ -161,7 +164,7 @@ export interface FxRateResult {
   fromCache: boolean
 }
 
-export type SecretKeyName = 'anthropicApiKey'
+export type SecretKeyName = 'anthropicApiKey' | 'openaiCompatibleApiKey'
 
 export interface Sld {
   id: string

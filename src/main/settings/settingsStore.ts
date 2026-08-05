@@ -32,6 +32,9 @@ function defaultSettings(): AppSettings {
     companies: [],
     customExtractionRules: [],
     aiModel: DEFAULT_AI_MODEL,
+    aiProvider: 'anthropic',
+    openaiCompatibleBaseUrl: '',
+    openaiCompatibleModel: '',
     // Real extraction data shows the model's self-reported confidence
     // clustering between 0.3-0.7 even for correct reads — 0.7 flagged ~88%
     // of lines for review, drowning the signal. 0.5 is a more realistic
@@ -67,6 +70,9 @@ export function getSettings(): AppSettings {
       companies: parsed.companies ?? defaults.companies,
       customExtractionRules: parsed.customExtractionRules ?? defaults.customExtractionRules,
       aiModel: parsed.aiModel ?? defaults.aiModel,
+      aiProvider: parsed.aiProvider ?? defaults.aiProvider,
+      openaiCompatibleBaseUrl: parsed.openaiCompatibleBaseUrl ?? defaults.openaiCompatibleBaseUrl,
+      openaiCompatibleModel: parsed.openaiCompatibleModel ?? defaults.openaiCompatibleModel,
       confidenceThreshold: parsed.confidenceThreshold ?? defaults.confidenceThreshold,
       maxExtractionRetries: parsed.maxExtractionRetries ?? defaults.maxExtractionRetries,
       defaultMargin: parsed.defaultMargin ?? defaults.defaultMargin,
