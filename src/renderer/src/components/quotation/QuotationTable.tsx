@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Flag as FlagIcon, Loader2, Plus, Sparkles } from 'lucide-react'
+import { Flag as FlagIcon, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
@@ -11,6 +11,7 @@ import { AddLineModal } from '@renderer/components/quotation/AddLineModal'
 import {
   useGenerateQuotation,
   useQuotation,
+  useRemoveQuotationLine,
   useUpdateLineMargin,
   useUpdatePanelMargin
 } from '@renderer/state/queries/useQuotation'
@@ -137,6 +138,7 @@ export function QuotationTable({
 }: QuotationTableProps): React.JSX.Element {
   const { data: quotation, isLoading } = useQuotation(sldId)
   const generate = useGenerateQuotation()
+  const removeLine = useRemoveQuotationLine()
   const { data: flags = [] } = useFlagsByQuotation(quotation?.id ?? null)
   const { data: settings } = useSettings()
   const { data: projects = [] } = useProjects()
@@ -176,6 +178,12 @@ export function QuotationTable({
         f.quotationLineId === lineId &&
         f.message.startsWith(LOW_CONFIDENCE_PREFIX)
     ) ?? null
+
+  const handleRemoveLine = (e: React.MouseEvent, line: QuotationLine): void => {
+    e.stopPropagation()
+    if (!window.confirm(`Remove "${line.description}" from the BOM?`)) return
+    removeLine.mutate({ lineId: line.id, sldId, projectId })
+  }
 
   const handleRowDoubleClick = (line: QuotationLine): void => {
     if (line.matchStatus === 'unknown') {
@@ -320,6 +328,7 @@ export function QuotationTable({
                 <th className="px-3 py-2 font-medium">Unit cost</th>
                 <th className="px-3 py-2 font-medium">Margin</th>
                 <th className="px-3 py-2 font-medium">Quote</th>
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -333,7 +342,7 @@ export function QuotationTable({
                   onDoubleClick={() => handleRowDoubleClick(line)}
                   title="Click to jump the PDF to this page — double-click to find or set this line's catalog item"
                   className={cn(
-                    'cursor-pointer border-b border-border last:border-0 hover:bg-surface-hover',
+                    'group cursor-pointer border-b border-border last:border-0 hover:bg-surface-hover',
                     line.matchStatus === 'unknown' && 'bg-danger-bg/40'
                   )}
                 >
@@ -372,6 +381,15 @@ export function QuotationTable({
                   <td className="px-3 py-2 text-text-primary">
                     {currency}
                     {convertFromBase(line.quotePrice, exchangeRate).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      onClick={(e) => handleRemoveLine(e, line)}
+                      title="Remove from BOM"
+                      className="rounded p-1 text-text-muted opacity-0 transition-opacity hover:bg-danger-bg hover:text-danger group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
