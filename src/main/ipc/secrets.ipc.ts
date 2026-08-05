@@ -1,5 +1,6 @@
 import { deleteSecret, getMaskedSecret, setSecret } from '../settings/secretsStore'
 import { testAnthropicApiKey } from '../ai/ClaudeProvider'
+import { testOpenAiCompatibleApiKey } from '../ai/OpenAiCompatibleProvider'
 import { getSettings, updateSettings } from '../settings/settingsStore'
 import { resolveAiModelForModelList } from '../settings/aiModelResolver'
 import { AppError } from '../errors/AppError'
@@ -22,7 +23,11 @@ export function registerSecretsIpc(): void {
 
   safeHandle(
     IPC.secretsTestApiKey,
-    async (_event, _keyName: SecretKeyName, key: string): Promise<TestApiKeyResult> => {
+    async (_event, keyName: SecretKeyName, key: string): Promise<TestApiKeyResult> => {
+      if (keyName === 'openaiCompatibleApiKey') {
+        return testOpenAiCompatibleApiKey(key, getSettings().openaiCompatibleBaseUrl)
+      }
+
       const result = await testAnthropicApiKey(key)
       if (result.ok && result.models) {
         const currentAiModel = getSettings().aiModel

@@ -12,9 +12,10 @@ import {
 import { readSldFile } from '../storage/sldStorage'
 import { listDistinctDescriptions } from '../db/repositories/catalogRepo'
 import { ClaudeProvider } from '../ai/ClaudeProvider'
+import { OpenAiCompatibleProvider } from '../ai/OpenAiCompatibleProvider'
 import type { AIProvider, ExtractionResult } from '../ai/AIProvider'
 import { getSettings } from '../settings/settingsStore'
-import { getAnthropicApiKey } from '../settings/secretsStore'
+import { getAnthropicApiKey, getSecret } from '../settings/secretsStore'
 import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
@@ -24,11 +25,24 @@ let provider: AIProvider | null = null
 let providerCacheKey: string | null = null
 
 function getProvider(effectiveModel: string): AIProvider {
+  const { aiProvider, openaiCompatibleBaseUrl, openaiCompatibleModel } = getSettings()
+
+  if (aiProvider === 'openai-compatible') {
+    const apiKey = getSecret('openaiCompatibleApiKey')
+    if (!apiKey) throw new AppError('AI_NO_API_KEY')
+    const cacheKey = `openai-compatible:${apiKey}:${openaiCompatibleBaseUrl}:${openaiCompatibleModel}`
+    if (!provider || providerCacheKey !== cacheKey) {
+      provider = new OpenAiCompatibleProvider(apiKey, openaiCompatibleBaseUrl, openaiCompatibleModel)
+      providerCacheKey = cacheKey
+    }
+    return provider
+  }
+
   const apiKey = getAnthropicApiKey()
   if (!apiKey) {
     throw new AppError('AI_NO_API_KEY')
   }
-  const cacheKey = `${apiKey}:${effectiveModel}`
+  const cacheKey = `anthropic:${apiKey}:${effectiveModel}`
   if (!provider || providerCacheKey !== cacheKey) {
     provider = new ClaudeProvider(apiKey, effectiveModel)
     providerCacheKey = cacheKey
