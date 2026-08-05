@@ -166,6 +166,7 @@ export function CenterPanel({
               filename={sld.filename}
               focusPage={focusPage}
               highlightedAnnotationId={highlightedAnnotationId}
+              onHideAiAnnotations={() => setHighlightedAnnotationId(null)}
               annotationFontSize={settings?.annotationFontSize ?? 12}
             />
             <ExtractionPanel key={`extraction-${sld.id}`} sldId={sld.id} project={project} />

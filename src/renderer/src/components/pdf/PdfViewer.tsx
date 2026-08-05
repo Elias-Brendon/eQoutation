@@ -65,6 +65,7 @@ interface PdfViewerProps {
   filename: string
   focusPage?: number
   highlightedAnnotationId?: string | null
+  onHideAiAnnotations?: () => void
   annotationFontSize: number
 }
 
@@ -82,6 +83,7 @@ export function PdfViewer({
   filename,
   focusPage,
   highlightedAnnotationId,
+  onHideAiAnnotations,
   annotationFontSize
 }: PdfViewerProps): React.JSX.Element {
   const { data: fileBytes, isLoading, isError, error: fileError } = useSldFile(sldId)
@@ -795,7 +797,18 @@ export function PdfViewer({
           <Button
             variant={showAiAnnotations ? 'accent' : 'ghost'}
             size="sm"
-            onClick={() => setShowAiAnnotations((v) => !v)}
+            onClick={() => {
+              setShowAiAnnotations((v) => {
+                const next = !v
+                // Turning the toggle off is an explicit "hide everything"
+                // action — it must win over a cross-reference highlight
+                // (see highlightedAnnotationId) still active from a recent
+                // Flags/Quotation row click, not leave that one box visible
+                // until its own timer expires.
+                if (!next) onHideAiAnnotations?.()
+                return next
+              })
+            }}
             title={showAiAnnotations ? 'Hide AI annotations' : 'Show AI annotations'}
           >
             {showAiAnnotations ? (
