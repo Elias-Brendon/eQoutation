@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeExtractionPayload, normalizeComponent, normalizeFlag, normalizeVerificationPayload } from './extractionSchema'
+import {
+  normalizeExtractionPayload,
+  normalizeComponent,
+  normalizeFlag,
+  normalizePanel,
+  normalizeVerificationPayload
+} from './extractionSchema'
 
 describe('normalizeExtractionPayload boundingBox handling', () => {
   it('passes through a valid boundingBox on a component', () => {
@@ -104,6 +110,57 @@ describe('normalizeFlag', () => {
   it('defaults severity to info for anything other than warning', () => {
     expect(normalizeFlag({ message: 'x', severity: 'danger' }).severity).toBe('info')
     expect(normalizeFlag({ message: 'x', severity: 'warning' }).severity).toBe('warning')
+  })
+})
+
+describe('normalizePanel', () => {
+  it('fills in defaults for a minimal input', () => {
+    expect(normalizePanel({})).toEqual({
+      pageNumber: 1,
+      panelName: 'UNKNOWN',
+      boundingBox: null
+    })
+  })
+
+  it('passes through a valid boundingBox and trims panelName', () => {
+    const result = normalizePanel({
+      pageNumber: 4,
+      panelName: '  250A DB-G1  ',
+      boundingBox: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 }
+    })
+    expect(result).toEqual({
+      pageNumber: 4,
+      panelName: '250A DB-G1',
+      boundingBox: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 }
+    })
+  })
+
+  it('rejects an out-of-range boundingBox as null, same as components/flags', () => {
+    const result = normalizePanel({
+      pageNumber: 1,
+      panelName: 'X',
+      boundingBox: { x: 1.5, y: 0, width: 0.1, height: 0.1 }
+    })
+    expect(result.boundingBox).toBeNull()
+  })
+})
+
+describe('normalizeExtractionPayload panels', () => {
+  it('normalizes a panels array alongside components and flags', () => {
+    const result = normalizeExtractionPayload({
+      components: [],
+      flags: [],
+      panels: [
+        { pageNumber: 4, panelName: '250A DB-G1', boundingBox: { x: 0, y: 0, width: 0.5, height: 0.5 } }
+      ]
+    })
+    expect(result.panels).toHaveLength(1)
+    expect(result.panels[0].panelName).toBe('250A DB-G1')
+  })
+
+  it('defaults panels to an empty array when missing from the payload', () => {
+    const result = normalizeExtractionPayload({ components: [], flags: [] })
+    expect(result.panels).toEqual([])
   })
 })
 
