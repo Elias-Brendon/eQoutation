@@ -107,6 +107,7 @@ export class ClaudeProvider implements AIProvider {
       if (error instanceof Anthropic.RateLimitError) throw new AppError('AI_RATE_LIMITED')
       if (error instanceof Anthropic.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
       if (error instanceof Anthropic.APIConnectionError) throw new AppError('AI_UNREACHABLE')
+      console.error('[ai:extractComponents:DEBUG]', error)
       throw new AppError('AI_REQUEST_FAILED')
     } finally {
       clearInterval(ticker)
