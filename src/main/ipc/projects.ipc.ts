@@ -2,11 +2,15 @@ import { getCurrentUserId } from '../auth/authState'
 import { getUserById } from '../db/repositories/usersRepo'
 import {
   createProject,
+  deleteProject,
+  getProjectById,
   listProjects,
   updateProjectAiModelOverride,
   updateProjectCurrencySettings,
   updateProjectDetails
 } from '../db/repositories/projectsRepo'
+import { deleteProjectFiles } from '../storage/projectStorage'
+import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
 import type {
@@ -53,4 +57,10 @@ export function registerProjectsIpc(): void {
         status: input.status
       })
   )
+  safeHandle(IPC.projectsDelete, (_event, projectId: string): void => {
+    const project = getProjectById(projectId)
+    if (!project) throw new AppError('DB_PROJECT_NOT_FOUND')
+    deleteProjectFiles(projectId)
+    deleteProject(projectId)
+  })
 }

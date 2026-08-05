@@ -89,7 +89,8 @@ const api = {
     updateAiModelOverride: (input: UpdateProjectAiModelOverrideInput): Promise<Project> =>
       ipcRenderer.invoke(IPC.projectsUpdateAiModelOverride, input),
     updateDetails: (input: UpdateProjectDetailsInput): Promise<Project> =>
-      ipcRenderer.invoke(IPC.projectsUpdateDetails, input)
+      ipcRenderer.invoke(IPC.projectsUpdateDetails, input),
+    delete: (projectId: string): Promise<void> => ipcRenderer.invoke(IPC.projectsDelete, projectId)
   },
   fx: {
     getRate: (targetCurrency: string, forceRefresh = false): Promise<FxRateResult> =>
