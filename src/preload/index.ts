@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IPC } from '../shared/types/ipc-contract'
 import type {
+  AddQuotationLineInput,
   Annotation,
   AppSettings,
   AuthStatus,
@@ -156,7 +157,26 @@ const api = {
     updateLineMargin: (lineId: string, margin: number): Promise<void> =>
       ipcRenderer.invoke(IPC.quotationLinesUpdateMargin, lineId, margin),
     updatePanelMargin: (quotationId: string, panelName: string, margin: number): Promise<void> =>
-      ipcRenderer.invoke(IPC.quotationPanelsUpdateMargin, quotationId, panelName, margin)
+      ipcRenderer.invoke(IPC.quotationPanelsUpdateMargin, quotationId, panelName, margin),
+    addLine: (
+      quotationId: string,
+      catalogItemId: string,
+      input: AddQuotationLineInput
+    ): Promise<QuotationLine> =>
+      ipcRenderer.invoke(IPC.quotationLinesAdd, quotationId, catalogItemId, input),
+    addLineWithNewCatalogItem: (
+      quotationId: string,
+      catalogInput: NewCatalogItemInput,
+      input: AddQuotationLineInput
+    ): Promise<QuotationLine> =>
+      ipcRenderer.invoke(
+        IPC.quotationLinesAddWithNewCatalogItem,
+        quotationId,
+        catalogInput,
+        input
+      ),
+    removeLine: (lineId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.quotationLinesRemove, lineId)
   },
   flags: {
     listByQuotation: (quotationId: string): Promise<Flag[]> =>

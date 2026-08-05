@@ -8,6 +8,7 @@ import {
   createQuotationWithLines,
   getLatestQuotationForSld,
   getQuotationById,
+  getQuotationLineById,
   listQuotationsByProject,
   setQuotationExcelPath,
   approveQuotation,
@@ -15,9 +16,17 @@ import {
   deleteQuotation,
   updateQuotationLineMargin,
   updatePanelMargin,
+  addQuotationLine,
+  addQuotationLineWithNewCatalogItem,
+  removeQuotationLine,
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
-import { createFlags, type CreateFlagInput } from '../db/repositories/flagsRepo'
+import {
+  createFlags,
+  listFlagsByQuotation,
+  resolveFlag,
+  type CreateFlagInput
+} from '../db/repositories/flagsRepo'
 import {
   createAiAnnotationsForFlags,
   createAiAnnotationsForLines,
@@ -34,7 +43,14 @@ import { resolveEffectivePreferredBrands } from '../settings/preferredBrandResol
 import { AppError } from '../errors/AppError'
 import { safeHandle } from './safeHandle'
 import { IPC } from '@shared/types/ipc-contract'
-import type { AnnotationBoundingBox, Quotation, QuotationComment } from '@shared/types/entities'
+import type {
+  AddQuotationLineInput,
+  AnnotationBoundingBox,
+  NewCatalogItemInput,
+  Quotation,
+  QuotationComment,
+  QuotationLine
+} from '@shared/types/entities'
 
 function generateQuotationCode(): string {
   const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -239,4 +255,44 @@ export function registerQuotationsIpc(): void {
       updatePanelMargin(quotationId, panelName, margin)
     }
   )
+
+  safeHandle(
+    IPC.quotationLinesAdd,
+    (
+      _event,
+      quotationId: string,
+      catalogItemId: string,
+      input: AddQuotationLineInput
+    ): QuotationLine => {
+      const { defaultMargin } = getSettings()
+      return addQuotationLine(quotationId, catalogItemId, input, defaultMargin)
+    }
+  )
+
+  safeHandle(
+    IPC.quotationLinesAddWithNewCatalogItem,
+    async (
+      _event,
+      quotationId: string,
+      catalogInput: NewCatalogItemInput,
+      input: AddQuotationLineInput
+    ): Promise<QuotationLine> => {
+      const { defaultMargin } = getSettings()
+      return addQuotationLineWithNewCatalogItem(quotationId, catalogInput, input, defaultMargin)
+    }
+  )
+
+  safeHandle(IPC.quotationLinesRemove, (_event, lineId: string): void => {
+    const line = getQuotationLineById(lineId)
+    if (!line) throw new AppError('DB_QUOTATION_LINE_NOT_FOUND')
+
+    const openFlagsForLine = listFlagsByQuotation(line.quotationId).filter(
+      (f) => f.status === 'open' && f.quotationLineId === lineId
+    )
+    for (const flag of openFlagsForLine) {
+      resolveFlag(flag.id, 'Line removed from BOM')
+    }
+
+    removeQuotationLine(lineId)
+  })
 }
