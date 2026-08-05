@@ -10,8 +10,17 @@ export class AppError extends Error {
   readonly errorCode: string
   readonly usage?: { inputTokens: number; outputTokens: number }
 
-  constructor(key: ErrorKey, usage?: { inputTokens: number; outputTokens: number }) {
-    super(formatErrorCode(key))
+  // `detail` appends the provider's own error text (e.g. "You have reached
+  // your specified API usage limits...") to the fixed error-code message —
+  // for errors like a 400 from the AI provider that aren't one of the
+  // specifically-classified cases (rate limit/auth/connection), the fixed
+  // generic message alone hides genuinely useful, specific information.
+  constructor(
+    key: ErrorKey,
+    usage?: { inputTokens: number; outputTokens: number },
+    detail?: string
+  ) {
+    super(detail ? `${formatErrorCode(key)} — ${detail}` : formatErrorCode(key))
     this.name = 'AppError'
     this.errorCode = ERROR_CODES[key].code
     this.usage = usage

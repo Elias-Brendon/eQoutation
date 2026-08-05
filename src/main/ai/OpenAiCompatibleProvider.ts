@@ -20,6 +20,19 @@ const MAX_TOKENS = 64000
 const PROGRESS_TICK_MS = 400
 const PROGRESS_TICK_CAP = 90
 
+// Pulls the API's own human-readable message out of an OpenAI-compatible
+// error response body for error types not specifically classified below
+// (rate limit/auth/connection already get their own clear AppError) —
+// otherwise a real, actionable message gets hidden behind the generic
+// "Extraction failed". Note: the openai SDK's `.error` is already the
+// unwrapped inner `error` object (one level, unlike @anthropic-ai/sdk's
+// `.error` which is the whole response envelope) — see openai/core/error.js.
+function extractApiErrorDetail(error: unknown): string | undefined {
+  if (!(error instanceof OpenAI.APIError)) return undefined
+  const body = error.error as { message?: string } | undefined
+  return body?.message
+}
+
 export class OpenAiCompatibleProvider implements AIProvider {
   private client: OpenAI
   private model: string
@@ -103,7 +116,7 @@ export class OpenAiCompatibleProvider implements AIProvider {
       if (error instanceof OpenAI.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
       if (error instanceof OpenAI.APIConnectionError) throw new AppError('AI_UNREACHABLE')
       console.error('[ai:openaiCompatible:extractComponents]', error)
-      throw new AppError('AI_REQUEST_FAILED')
+      throw new AppError('AI_REQUEST_FAILED', undefined, extractApiErrorDetail(error))
     } finally {
       clearInterval(ticker)
     }

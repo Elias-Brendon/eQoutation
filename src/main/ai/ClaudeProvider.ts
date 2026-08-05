@@ -26,6 +26,17 @@ const MAX_TOKENS = 64000
 const PROGRESS_TICK_MS = 400
 const PROGRESS_TICK_CAP = 88
 
+// Pulls the API's own human-readable message out of an Anthropic error
+// response body (e.g. "You have reached your specified API usage limits...")
+// for error types not specifically classified below (rate limit/auth/
+// connection already get their own clear AppError) — otherwise a real,
+// actionable message gets hidden behind the generic "Extraction failed".
+function extractApiErrorDetail(error: unknown): string | undefined {
+  if (!(error instanceof Anthropic.APIError)) return undefined
+  const body = error.error as { error?: { message?: string } } | undefined
+  return body?.error?.message
+}
+
 export class ClaudeProvider implements AIProvider {
   private client: Anthropic
   private model: string
@@ -109,7 +120,7 @@ export class ClaudeProvider implements AIProvider {
       if (error instanceof Anthropic.AuthenticationError) throw new AppError('AI_INVALID_API_KEY')
       if (error instanceof Anthropic.APIConnectionError) throw new AppError('AI_UNREACHABLE')
       console.error('[ai:extractComponents:DEBUG]', error)
-      throw new AppError('AI_REQUEST_FAILED')
+      throw new AppError('AI_REQUEST_FAILED', undefined, extractApiErrorDetail(error))
     } finally {
       clearInterval(ticker)
     }
