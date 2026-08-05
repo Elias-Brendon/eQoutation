@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@renderer/components/common/Input'
 import { Button } from '@renderer/components/common/Button'
+import { useSettings } from '@renderer/state/queries/useSettings'
 import {
   useApiKeyMasked,
   useDeleteApiKey,
@@ -10,14 +11,25 @@ import {
 import type { SecretKeyName } from '@shared/types/entities'
 
 export function ApiKeysSection(): React.JSX.Element {
+  const { data: settings } = useSettings()
+
   return (
     <div className="flex flex-col gap-6">
-      <ApiKeyField
-        keyName="anthropicApiKey"
-        label="Anthropic API Key"
-        description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except Anthropic's API. Testing the connection also refreshes the model list in Settings > AI Model."
-        placeholder="sk-ant-…"
-      />
+      {settings?.aiProvider === 'openai-compatible' ? (
+        <ApiKeyField
+          keyName="openaiCompatibleApiKey"
+          label="OpenAI-Compatible API Key"
+          description="Your API key for the provider configured in Settings > AI Model (OpenAI, Qwen, Grok, or a local server). Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except that provider's endpoint."
+          placeholder="sk-…"
+        />
+      ) : (
+        <ApiKeyField
+          keyName="anthropicApiKey"
+          label="Anthropic API Key"
+          description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except Anthropic's API. Testing the connection also refreshes the model list in Settings > AI Model."
+          placeholder="sk-ant-…"
+        />
+      )}
     </div>
   )
 }
