@@ -23,6 +23,7 @@ import { sql as m0022 } from './0022_annotation_quotation_line'
 import { sql as m0023 } from './0023_project_ai_model_override'
 import { sql as m0024 } from './0024_project_details'
 import { sql as m0025 } from './0025_event_log'
+import { sql as m0026 } from './0026_quotation_line_soft_delete'
 
 export interface Migration {
   version: number
@@ -55,5 +56,6 @@ export const migrations: Migration[] = [
   { version: 22, name: '0022_annotation_quotation_line', sql: m0022 },
   { version: 23, name: '0023_project_ai_model_override', sql: m0023 },
   { version: 24, name: '0024_project_details', sql: m0024 },
-  { version: 25, name: '0025_event_log', sql: m0025 }
+  { version: 25, name: '0025_event_log', sql: m0025 },
+  { version: 26, name: '0026_quotation_line_soft_delete', sql: m0026 }
 ]
