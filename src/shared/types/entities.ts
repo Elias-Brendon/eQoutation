@@ -205,6 +205,12 @@ export interface QuotationLine {
   aiConfidence: number
 }
 
+export interface AddQuotationLineInput {
+  pageNumber: number
+  panelName: string
+  qty: number
+}
+
 export interface Quotation {
   id: string
   sldId: string

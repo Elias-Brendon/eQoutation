@@ -1,8 +1,12 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../index'
 import { AppError } from '../../errors/AppError'
+import { getCatalogItemById } from './catalogRepo'
+import { addCatalogItem } from '../../catalog/catalogWriter'
 import type {
+  AddQuotationLineInput,
   CatalogItem,
+  NewCatalogItemInput,
   Quotation,
   QuotationLine,
   QuotationStatus,
@@ -181,7 +185,7 @@ export function createQuotationWithLines(
 function getLinesForQuotation(quotationId: string): QuotationLine[] {
   const rows = getDb()
     .prepare(
-      'SELECT * FROM quotation_lines WHERE quotation_id = ? ORDER BY page_number ASC, created_at ASC'
+      'SELECT * FROM quotation_lines WHERE quotation_id = ? AND removed_at IS NULL ORDER BY page_number ASC, created_at ASC'
     )
     .all(quotationId) as QuotationLineRow[]
   return rows.map(toLine)
@@ -296,6 +300,73 @@ export function updatePanelMargin(quotationId: string, panelName: string, margin
        WHERE quotation_id = @quotation_id AND panel_name = @panel_name`
     )
     .run({ margin, quotation_id: quotationId, panel_name: panelName })
+}
+
+export function addQuotationLine(
+  quotationId: string,
+  catalogItemId: string,
+  input: AddQuotationLineInput,
+  margin: number
+): QuotationLine {
+  const catalogItem = getCatalogItemById(catalogItemId)
+  if (!catalogItem) throw new AppError('DB_CATALOG_ITEM_NOT_FOUND')
+
+  const db = getDb()
+  const now = new Date().toISOString()
+  const id = randomUUID()
+  const unitCost = catalogItem.unitPrice
+  const totalCost = input.qty * unitCost
+  const quotePrice = totalCost * margin
+
+  db.prepare(
+    `INSERT INTO quotation_lines
+       (id, quotation_id, catalog_item_id, page_number, panel_name, tag, sku, component_type, description, maker, qty, uom,
+        list_price, discount_factor, unit_cost, total_cost, margin, quote_price,
+        match_status, match_confidence, ai_confidence, created_at)
+     VALUES
+       (@id, @quotation_id, @catalog_item_id, @page_number, @panel_name, '', @sku, '', @description, @maker, @qty, @uom,
+        @list_price, @discount_factor, @unit_cost, @total_cost, @margin, @quote_price,
+        'matched', 1, 1, @created_at)`
+  ).run({
+    id,
+    quotation_id: quotationId,
+    catalog_item_id: catalogItem.id,
+    page_number: input.pageNumber,
+    panel_name: input.panelName,
+    sku: catalogItem.sku,
+    description: catalogItem.description,
+    maker: catalogItem.maker,
+    qty: input.qty,
+    uom: catalogItem.uom,
+    list_price: catalogItem.listPrice,
+    discount_factor: catalogItem.discountFactor,
+    unit_cost: unitCost,
+    total_cost: totalCost,
+    margin,
+    quote_price: quotePrice,
+    created_at: now
+  })
+
+  return getQuotationLineById(id) as QuotationLine
+}
+
+export async function addQuotationLineWithNewCatalogItem(
+  quotationId: string,
+  catalogInput: NewCatalogItemInput,
+  input: AddQuotationLineInput,
+  margin: number
+): Promise<QuotationLine> {
+  const catalogItem = await addCatalogItem(catalogInput)
+  return addQuotationLine(quotationId, catalogItem.id, input, margin)
+}
+
+export function removeQuotationLine(lineId: string): void {
+  const current = getQuotationLineById(lineId)
+  if (!current) throw new AppError('DB_QUOTATION_LINE_NOT_FOUND')
+
+  getDb()
+    .prepare('UPDATE quotation_lines SET removed_at = ? WHERE id = ?')
+    .run(new Date().toISOString(), lineId)
 }
 
 export function getLatestQuotationForSld(sldId: string): Quotation | null {
