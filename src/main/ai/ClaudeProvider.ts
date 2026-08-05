@@ -4,10 +4,15 @@ import {
   buildExtractionJsonSchema,
   buildVerificationJsonSchema,
   normalizeExtractionPayload,
-  normalizeVerificationPayload
+  normalizeVerificationPayload,
+  type ExtractedPanel
 } from './extractionSchema'
-import { buildExtractionSystemPrompt, buildVerificationSystemPrompt } from './promptTemplates'
-import { loadPdfDocument, renderPdfPagesToImages } from './pdfRenderer'
+import {
+  buildExtractionSystemPrompt,
+  buildVerificationSystemPrompt,
+  buildCropZoomSystemPrompt
+} from './promptTemplates'
+import { loadPdfDocument, renderPdfPagesToImages, renderPdfPanelCrop } from './pdfRenderer'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { dedupeComponents, dedupeFlags } from './dedup'
 import { AppError } from '../errors/AppError'
@@ -146,7 +151,7 @@ export class ClaudeProvider implements AIProvider {
           outputTokens: message.usage.output_tokens
         })
       }
-      const { components, flags } = normalizeExtractionPayload(parsed)
+      const { components, flags, panels } = normalizeExtractionPayload(parsed)
 
       let totalUsage = {
         inputTokens: message.usage.input_tokens,
@@ -211,6 +216,89 @@ export class ClaudeProvider implements AIProvider {
         console.error('[ai:verifyExtraction]', error)
       } finally {
         clearInterval(verifyTicker)
+      }
+
+      onProgress?.({ pct: 99, stage: 'Zooming into panels' })
+
+      const panelsByPage = new Map<number, ExtractedPanel[]>()
+      for (const panel of panels) {
+        const list = panelsByPage.get(panel.pageNumber) ?? []
+        list.push(panel)
+        panelsByPage.set(panel.pageNumber, list)
+      }
+
+      for (const [pageNumber, pagePanels] of panelsByPage) {
+        const renderedCrops: { panel: ExtractedPanel; base64Png: string }[] = []
+        for (const panel of pagePanels) {
+          if (!panel.boundingBox) continue
+          try {
+            const base64Png = await renderPdfPanelCrop(pdfDoc, pageNumber, panel.boundingBox)
+            if (base64Png) renderedCrops.push({ panel, base64Png })
+          } catch (error) {
+            console.error('[ai:renderPdfPanelCrop]', pageNumber, panel.panelName, error)
+          }
+        }
+        if (renderedCrops.length === 0) continue
+
+        const cropContentBlocks = renderedCrops.flatMap(
+          ({ panel, base64Png }): Anthropic.Messages.ContentBlockParam[] => [
+            { type: 'text', text: `Page ${pageNumber} — Panel: ${panel.panelName}` },
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: base64Png } }
+          ]
+        )
+
+        const pageComponents = components.filter((c) => c.pageNumber === pageNumber)
+        const pageFlags = flags.filter((f) => f.pageNumber === pageNumber)
+
+        try {
+          const cropZoomStream = this.client.messages.stream({
+            model: this.model,
+            max_tokens: MAX_TOKENS,
+            thinking: { type: 'disabled' },
+            system: buildCropZoomSystemPrompt(
+              enabledComponentTypes,
+              catalogDescriptions,
+              preferredBrands,
+              customRules,
+              pageComponents,
+              pageFlags
+            ),
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  ...cropContentBlocks,
+                  {
+                    type: 'text',
+                    text: 'Review these zoomed panel crops against the already-extracted list as described in the system prompt.'
+                  }
+                ]
+              }
+            ],
+            output_config: {
+              format: { type: 'json_schema', schema: buildVerificationJsonSchema(enabledComponentTypes) }
+            }
+          })
+          const cropZoomMessage = await cropZoomStream.finalMessage()
+          totalUsage = {
+            inputTokens: totalUsage.inputTokens + cropZoomMessage.usage.input_tokens,
+            outputTokens: totalUsage.outputTokens + cropZoomMessage.usage.output_tokens
+          }
+
+          const cropZoomTextBlock = cropZoomMessage.content.find(
+            (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
+          )
+          if (cropZoomTextBlock) {
+            const cropZoomParsed = JSON.parse(cropZoomTextBlock.text)
+            const { missedComponents, additionalFlags } = normalizeVerificationPayload(cropZoomParsed)
+            components.push(...dedupeComponents(components, missedComponents))
+            flags.push(...dedupeFlags(flags, additionalFlags))
+          }
+        } catch (error) {
+          // Same policy as the verification pass: an enhancement failure
+          // must never waste an already-successful extraction.
+          console.error('[ai:cropZoomExtraction]', pageNumber, error)
+        }
       }
 
       onProgress?.({ pct: 100, stage: 'Done' })
