@@ -55,3 +55,9 @@ publish:
   owner: Elias-Brendon
   repo: Qoutation
   private: true
+  # electron-builder defaults to publishing GitHub Releases as drafts, which
+  # are invisible to unauthenticated fetches and to electron-updater's own
+  # check — self-update would silently never find a release left as a draft.
+  # Verified live 2026-08-06: v0.1.2 was created as a draft and had to be
+  # manually published before the app could see it.
+  releaseType: release
