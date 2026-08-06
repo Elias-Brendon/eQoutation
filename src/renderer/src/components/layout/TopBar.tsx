@@ -19,7 +19,7 @@ import { cn } from '@renderer/lib/cn'
 import { useUpdateProjectCurrencySettings } from '@renderer/state/queries/useProjects'
 import { useFxRate } from '@renderer/state/queries/useFx'
 import { useProjectTokenUsage } from '@renderer/state/queries/useAiUsage'
-import { useUpdateCheck } from '@renderer/state/queries/useApp'
+import { useUpdateCheck, useUpdateInstall } from '@renderer/state/queries/useApp'
 import { useSettings, useUpdateSettings } from '@renderer/state/queries/useSettings'
 import { CURRENCIES } from '@shared/constants/currencies'
 import type { ExtractionProgressEvent, Project } from '@shared/types/entities'
@@ -398,22 +398,32 @@ function UpdateNotice(): React.JSX.Element | null {
   const { data: status } = useUpdateCheck()
   const { data: settings } = useSettings()
   const updateSettings = useUpdateSettings()
+  const { isDownloading, didFail, percent, startUpdate } = useUpdateInstall()
 
   if (!status?.isNewer) return null
-  if (settings?.dismissedUpdateVersion === status.latestVersion) return null
+  const dismissed = settings?.dismissedUpdateVersion === status.latestVersion
+  if (dismissed && !isDownloading && !didFail) return null
+
+  if (isDownloading) {
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent">
+        <Download className="h-3 w-3" />
+        Downloading… {percent ?? 0}%
+      </div>
+    )
+  }
 
   return (
     <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent">
       <Download className="h-3 w-3" />
-      <a
-        href="https://github.com/Elias-Brendon/Qoutation/releases"
-        target="_blank"
-        rel="noreferrer"
-        title={`Version ${status.latestVersion} is available — opens the Releases page`}
+      <button
+        type="button"
+        onClick={() => startUpdate(status.latestVersion)}
+        title={`Download and install v${status.latestVersion}`}
         className="hover:underline"
       >
-        v{status.latestVersion} available
-      </a>
+        {didFail ? 'Update failed — retry' : `v${status.latestVersion} available`}
+      </button>
       <button
         type="button"
         onClick={() => updateSettings.mutate({ dismissedUpdateVersion: status.latestVersion })}
