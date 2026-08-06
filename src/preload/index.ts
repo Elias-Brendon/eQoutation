@@ -37,6 +37,7 @@ import type {
   SetupInput,
   Sld,
   TestApiKeyResult,
+  UpdateCheckResult,
   UpdateProjectAiModelOverrideInput,
   UpdateProjectCurrencySettingsInput,
   UpdateProjectDetailsInput,
@@ -47,7 +48,8 @@ import type {
 const api = {
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion),
-    getUpdateStatus: (): Promise<UpdateStatus | null> => ipcRenderer.invoke(IPC.appGetUpdateStatus)
+    getUpdateStatus: (): Promise<UpdateStatus | null> => ipcRenderer.invoke(IPC.appGetUpdateStatus),
+    checkForUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.appCheckForUpdate)
   },
   auth: {
     getStatus: (): Promise<AuthStatus> => ipcRenderer.invoke(IPC.authGetStatus),
