@@ -438,3 +438,12 @@ export interface UpdateStatus {
   latestVersion: string
   isNewer: boolean
 }
+
+// Result of an on-demand update check (app:checkForUpdate IPC channel).
+// succeeded is false when the check itself failed (offline, bad response) —
+// status may still be non-null in that case if an earlier check (e.g. the
+// launch-time one) had already populated the cache.
+export interface UpdateCheckResult {
+  status: UpdateStatus | null
+  succeeded: boolean
+}
