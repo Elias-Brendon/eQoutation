@@ -62,8 +62,14 @@ try {
     npm run build:win
     if ($LASTEXITCODE -ne 0) { throw "npm run build:win failed with exit code $LASTEXITCODE" }
 
-    $Setup = Get-ChildItem 'dist' -Filter 'eqoutation-*-setup.exe' | Select-Object -First 1
-    if (-not $Setup) { throw "No setup exe found in dist/ after build" }
+    # Match the exact current version, not just "first file matching the
+    # pattern" - dist/ can hold installers from previous versions too (no
+    # sort order is guaranteed, and alphabetical sort would silently prefer
+    # an older, stale semver like 0.1.0 over 0.1.1), which would verify a
+    # stale build instead of the one just produced.
+    $PackageVersion = (Get-Content 'package.json' -Raw | ConvertFrom-Json).version
+    $Setup = Get-ChildItem 'dist' -Filter "eqoutation-$PackageVersion-setup.exe"
+    if (-not $Setup) { throw "No setup exe found in dist/ matching version $PackageVersion after build" }
     Write-Host "  Built $($Setup.Name)"
 
     Write-Host "`n=== Silent install ===" -ForegroundColor Cyan
