@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.3](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.2...v0.1.3) (2026-08-06)
+
+
+### Bug Fixes
+
+* publish real GitHub Releases instead of drafts ([1a03eb8](https://github.com/Elias-Brendon/Qoutation/commit/1a03eb8439d99c8f1d9a5e337394c48eba1e6ca3))
+
 ### [0.1.2](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.1...v0.1.2) (2026-08-06)
 
 
