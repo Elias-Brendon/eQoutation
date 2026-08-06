@@ -6,12 +6,12 @@ import icon from '../../resources/icon.png?asset'
 import { registerAllIpc } from './ipc'
 import { refreshStaleProjectExchangeRates } from './fx/refreshProjectExchangeRates'
 import { registerCrashHandlers, registerWindowCrashHandlers } from './observability/crashHandlers'
-import { checkForUpdate } from './updateCheck/updateCheck'
+import { checkForUpdate, initAutoUpdater } from './updater/autoUpdater'
 
 // Dev-only key loading; production should use the OS keychain instead (see plan risk #5).
 loadEnv()
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1440,
@@ -46,6 +46,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return mainWindow
 }
 
 // This method will be called when Electron has finished
@@ -65,15 +67,16 @@ app.whenReady().then(() => {
   registerAllIpc()
   registerCrashHandlers()
 
-  createWindow()
+  const mainWindow = createWindow()
+  initAutoUpdater(mainWindow.webContents)
 
   // Best-effort daily refresh of non-manual project exchange rates — never
   // blocks startup, and fetchLiveRate's own cache keeps this to at most one
   // Frankfurter call per currency per day regardless of launch frequency.
   refreshStaleProjectExchangeRates().catch(() => {})
 
-  // Best-effort update check — never blocks startup; see updateCheck.ts.
-  checkForUpdate(app.getVersion()).catch(() => {})
+  // Best-effort update check — never blocks startup; see updater/autoUpdater.ts.
+  checkForUpdate().catch(() => {})
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
