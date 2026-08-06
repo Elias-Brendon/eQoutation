@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.1...v0.1.2) (2026-08-06)
+
+
+### Features
+
+* add app:checkForUpdate IPC channel ([be3adb4](https://github.com/Elias-Brendon/Qoutation/commit/be3adb4528c0ac683e25150dae8ada32a7e0de55))
+* add app:downloadUpdate IPC channel and progress push event ([64efc98](https://github.com/Elias-Brendon/Qoutation/commit/64efc9841714dcaf52c8b08a3de9ce30933170bd))
+* add electron-updater dependency and GitHub publish config ([88d03c7](https://github.com/Elias-Brendon/Qoutation/commit/88d03c749eab4cd2bd5354c253dfe437b724261b))
+* add lastActiveProjectId to AppSettings ([67c52ad](https://github.com/Elias-Brendon/Qoutation/commit/67c52ad52a79bdeb15b07a36d01822ee2aaaea4f))
+* add manual check-for-updates UI to Settings About section ([5604c91](https://github.com/Elias-Brendon/Qoutation/commit/5604c91670dc3e9a26ef15399e4f56d730593ad5))
+* add Update Now to Settings About section ([637b44d](https://github.com/Elias-Brendon/Qoutation/commit/637b44d44c14f7f511293f7515262a336544ba0e))
+* add update-download hooks (useDownloadUpdate, useUpdateInstall) ([5faf433](https://github.com/Elias-Brendon/Qoutation/commit/5faf4330b0b9bdc31df7fde157d36b855b097e2a))
+* add UpdateCheckResult shared type ([07b6da5](https://github.com/Elias-Brendon/Qoutation/commit/07b6da5c2667fc82ac8670ee64e2009600d5c853))
+* add useCheckForUpdate mutation hook ([1d55433](https://github.com/Elias-Brendon/Qoutation/commit/1d55433c5994d2f44778fe7a952a092b3566ddf5))
+* checkForUpdate reports whether the fetch succeeded ([6c90174](https://github.com/Elias-Brendon/Qoutation/commit/6c90174f7bc697212468de6b012e7efe7a3eb945))
+* initialize electron-updater on launch ([b341098](https://github.com/Elias-Brendon/Qoutation/commit/b341098a8cacf6914167cc4810f8dc2da9b3cffc))
+* remember and restore the last-active project across restarts ([19aeff5](https://github.com/Elias-Brendon/Qoutation/commit/19aeff5c7dfd0bab65d9e9a38b4a6a33b2caccb0))
+* replace Gist update check with electron-updater module ([9b2f90c](https://github.com/Elias-Brendon/Qoutation/commit/9b2f90c0dca93f141a4e4481a99cfe0c1a536aaf))
+* TopBar update pill downloads and installs instead of linking out ([89f5802](https://github.com/Elias-Brendon/Qoutation/commit/89f58029003f05066b5ea802bfbbe19c66ad5230))
+
+
+### Bug Fixes
+
+* match exact package version in installer verify script ([03b8ce5](https://github.com/Elias-Brendon/Qoutation/commit/03b8ce5aba9edd4e1de07a4ea1d1e6e2f4083f4a))
+
 ### [0.1.1](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.0...v0.1.1) (2026-08-05)
 
 
