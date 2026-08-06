@@ -33,18 +33,21 @@ async function fetchLatestVersion(): Promise<string | null> {
   }
 }
 
-// Runs once per app launch (called from main/index.ts's app.whenReady()).
-// Best-effort: any failure (offline, gist unreachable, malformed payload)
-// leaves cachedStatus null, and getUpdateStatus() simply reports "no
-// update info yet" rather than throwing or blocking startup.
-export async function checkForUpdate(currentVersion: string): Promise<void> {
+// Runs once per app launch (called from main/index.ts's app.whenReady()) and
+// on-demand from the renderer's manual "Check for Updates" button (via the
+// app:checkForUpdate IPC channel). Both callers get the same best-effort
+// behavior — this never throws — but only the manual path reads the
+// returned boolean; the launch-time call ignores it and stays silent on
+// failure by design (see main/index.ts).
+export async function checkForUpdate(currentVersion: string): Promise<boolean> {
   const latestVersion = await fetchLatestVersion()
-  if (!latestVersion) return
+  if (!latestVersion) return false
   cachedStatus = {
     currentVersion,
     latestVersion,
     isNewer: isNewerVersion(latestVersion, currentVersion)
   }
+  return true
 }
 
 export function getUpdateStatus(): UpdateStatus | null {
