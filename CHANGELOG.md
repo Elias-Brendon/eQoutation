@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.6](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.5...v0.1.6) (2026-08-06)
+
+
+### Bug Fixes
+
+* disable differential downloads, they got stuck at 0% ([df4c815](https://github.com/Elias-Brendon/Qoutation/commit/df4c815d9d69d5977c30a517e391d0327bfe3733))
+
 ### [0.1.5](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.4...v0.1.5) (2026-08-06)
 
 ### [0.1.4](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.3...v0.1.4) (2026-08-06)
