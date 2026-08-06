@@ -45,7 +45,8 @@ function defaultSettings(): AppSettings {
     fontScale: 'md',
     annotationFontSize: 12,
     dismissedUpdateVersion: null,
-    cachedAiModels: null
+    cachedAiModels: null,
+    lastActiveProjectId: null
   }
 }
 
@@ -79,7 +80,8 @@ export function getSettings(): AppSettings {
       fontScale: parsed.fontScale ?? defaults.fontScale,
       annotationFontSize: parsed.annotationFontSize ?? defaults.annotationFontSize,
       dismissedUpdateVersion: parsed.dismissedUpdateVersion ?? defaults.dismissedUpdateVersion,
-      cachedAiModels: parsed.cachedAiModels ?? defaults.cachedAiModels
+      cachedAiModels: parsed.cachedAiModels ?? defaults.cachedAiModels,
+      lastActiveProjectId: parsed.lastActiveProjectId ?? defaults.lastActiveProjectId
     }
   } catch {
     return defaults

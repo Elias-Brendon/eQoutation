@@ -77,6 +77,8 @@ export interface AppSettings {
   dismissedUpdateVersion: string | null
   /** Latest model list fetched from Anthropic via "Test connection" — null until a key has ever been tested successfully. */
   cachedAiModels: { id: string; label: string }[] | null
+  /** Project the user last had selected — restored on next launch if it still exists. */
+  lastActiveProjectId: string | null
 }
 
 export interface ChangePasswordInput {
