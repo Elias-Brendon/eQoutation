@@ -49,7 +49,13 @@ const api = {
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion),
     getUpdateStatus: (): Promise<UpdateStatus | null> => ipcRenderer.invoke(IPC.appGetUpdateStatus),
-    checkForUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.appCheckForUpdate)
+    checkForUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.appCheckForUpdate),
+    downloadUpdate: (): Promise<void> => ipcRenderer.invoke(IPC.appDownloadUpdate),
+    onUpdateDownloadProgress: (callback: (percent: number) => void): (() => void) => {
+      const listener = (_event: unknown, percent: number): void => callback(percent)
+      ipcRenderer.on(IPC.appUpdateDownloadProgress, listener)
+      return () => ipcRenderer.removeListener(IPC.appUpdateDownloadProgress, listener)
+    }
   },
   auth: {
     getStatus: (): Promise<AuthStatus> => ipcRenderer.invoke(IPC.authGetStatus),
