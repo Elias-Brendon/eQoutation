@@ -15,9 +15,18 @@ let cachedStatus: UpdateStatus | null = null
 // on-demand from the renderer's "Check for Updates" button (via the
 // app:checkForUpdate IPC channel) — both share this one cache.
 export function initAutoUpdater(webContents: WebContents): void {
+  // electron-updater's provider factory (providerFactory.js) decides whether
+  // to use the authenticated PrivateGitHubProvider by checking
+  // process.env.GH_TOKEN/GITHUB_TOKEN at call time — NOT autoUpdater's own
+  // requestHeaders (that only affects requests *within* an already-selected
+  // provider). Without this, a private repo silently falls back to the
+  // public GitHubProvider, which hits the public releases.atom feed and
+  // 404s. Verified live 2026-08-06: this was the actual cause of "Couldn't
+  // check for updates" against a real published release with a valid token.
+  process.env.GH_TOKEN = UPDATE_TOKEN
+
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
-  autoUpdater.requestHeaders = { authorization: `token ${UPDATE_TOKEN}` }
 
   autoUpdater.on('update-available', (info) => {
     cachedStatus = {
