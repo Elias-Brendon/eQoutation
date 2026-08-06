@@ -27,6 +27,12 @@ export function initAutoUpdater(webContents: WebContents): void {
 
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
+  // Differential (block-map diff) downloads got stuck at 0% in live testing
+  // 2026-08-06 — electron-updater resolved identical "old" and "new"
+  // blockmap URLs instead of correctly diffing against the installed
+  // version, so it never actually fetched new bytes. A handful of beta
+  // testers isn't worth this fragility; always fetch the full installer.
+  autoUpdater.disableDifferentialDownload = true
 
   autoUpdater.on('update-available', (info) => {
     cachedStatus = {
