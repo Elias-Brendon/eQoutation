@@ -24,7 +24,7 @@ import { useDeleteQuotation, useQuotationsByProject } from '@renderer/state/quer
 import { useOpenFlagCountsByProject } from '@renderer/state/queries/useFlags'
 import { useExportProject } from '@renderer/state/queries/useExport'
 import { useAuthStatus, useLogout } from '@renderer/state/queries/useAuth'
-import { useSettings } from '@renderer/state/queries/useSettings'
+import { useSettings, useUpdateSettings } from '@renderer/state/queries/useSettings'
 import type { Project, Quotation, Sld } from '@shared/types/entities'
 
 function App(): React.JSX.Element {
@@ -59,6 +59,7 @@ function App(): React.JSX.Element {
   const deleteQuotation = useDeleteQuotation()
   const deleteProject = useDeleteProject()
   const exportProject = useExportProject()
+  const updateSettings = useUpdateSettings()
 
   const setExtractionProgress = useUiStore((s) => s.setExtractionProgress)
   const extractionProgress = useUiStore((s) => s.extractionProgress)
@@ -112,12 +113,16 @@ function App(): React.JSX.Element {
 
   useEffect(() => window.api.ai.onProgress(setExtractionProgress), [setExtractionProgress])
 
-  // Auto-select the most recently created project once the list loads.
+  // Auto-select the last-active project once both the project list and
+  // settings have loaded. Falls back to the most-recently-created project
+  // (today's prior behavior) if there's no remembered selection, or it
+  // points at a since-deleted project — the .find() below just won't match,
+  // no separate error handling needed.
   useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
-      selectProject(projects[0].id)
-    }
-  }, [projects, selectedProjectId, selectProject])
+    if (selectedProjectId || projects.length === 0 || !settings) return
+    const remembered = projects.find((p) => p.id === settings.lastActiveProjectId)
+    selectProject((remembered ?? projects[0]).id)
+  }, [projects, selectedProjectId, selectProject, settings])
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
   const sldsById = useMemo(() => new Map(slds.map((sld) => [sld.id, sld])), [slds])
@@ -159,7 +164,15 @@ function App(): React.JSX.Element {
     )
     if (!confirmed) return
     await deleteProject.mutateAsync(project.id)
-    if (selectedProjectId === project.id) clearProject()
+    if (selectedProjectId === project.id) {
+      clearProject()
+      updateSettings.mutate({ lastActiveProjectId: null })
+    }
+  }
+
+  const handleSelectProject = (projectId: string): void => {
+    selectProject(projectId)
+    updateSettings.mutate({ lastActiveProjectId: projectId })
   }
 
   const shortcuts = useMemo(
@@ -273,7 +286,7 @@ function App(): React.JSX.Element {
           open={createProjectOpen}
           onClose={() => setCreateProjectOpen(false)}
           onCreated={(projectId) => {
-            selectProject(projectId)
+            handleSelectProject(projectId)
             setCreateProjectOpen(false)
           }}
           currentUsername={authStatus?.user?.username ?? null}
@@ -283,7 +296,7 @@ function App(): React.JSX.Element {
           onClose={() => setProjectSwitcherOpen(false)}
           projects={projects}
           selectedProjectId={selectedProjectId}
-          onSelectProject={selectProject}
+          onSelectProject={handleSelectProject}
           onDeleteProject={handleDeleteProject}
         />
         <ProjectDetailsModal
