@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.4](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.3...v0.1.4) (2026-08-06)
+
+
+### Bug Fixes
+
+* self-update auth was never actually applied ([25676f7](https://github.com/Elias-Brendon/Qoutation/commit/25676f71d0447a74d359fd044f13bad88932f7b2))
+
 ### [0.1.3](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.2...v0.1.3) (2026-08-06)
 
 
