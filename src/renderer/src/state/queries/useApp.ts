@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   useMutation,
   useQuery,
@@ -40,4 +41,53 @@ export function useCheckForUpdate(): UseMutationResult<UpdateCheckResult, Error,
       queryClient.setQueryData(updateStatusQueryKey, result.status)
     }
   })
+}
+
+export function useDownloadUpdate(): UseMutationResult<void, Error, void> {
+  return useMutation({
+    mutationFn: () => window.api.app.downloadUpdate()
+  })
+}
+
+// Percent (0-100) of the update currently downloading, or null before a
+// download starts. ipcRenderer.on supports multiple independent listeners
+// on one channel, so both TopBar and Settings can call this directly
+// without needing shared global state the way extractionProgress does in
+// useUiStore (that one is needed in many places at once; this is needed in
+// exactly two).
+export function useUpdateDownloadProgress(): number | null {
+  const [percent, setPercent] = useState<number | null>(null)
+  useEffect(() => window.api.app.onUpdateDownloadProgress(setPercent), [])
+  return percent
+}
+
+// Shared confirm -> download -> progress flow for both UI surfaces
+// (TopBar's pill and Settings' About section) that offer "install this
+// update now". A single confirmation covers the whole action — once the
+// download finishes, the main process installs and relaunches on its own
+// (see updater/autoUpdater.ts's update-downloaded handler); there is
+// nothing further for the renderer to do after starting the download.
+export function useUpdateInstall(): {
+  isDownloading: boolean
+  didFail: boolean
+  percent: number | null
+  startUpdate: (latestVersion: string) => void
+} {
+  const download = useDownloadUpdate()
+  const percent = useUpdateDownloadProgress()
+
+  const startUpdate = (latestVersion: string): void => {
+    const confirmed = window.confirm(
+      `Update to v${latestVersion}? The app will download the update and restart automatically.`
+    )
+    if (!confirmed) return
+    download.mutate()
+  }
+
+  return {
+    isDownloading: download.isPending,
+    didFail: download.isError,
+    percent,
+    startUpdate
+  }
 }
