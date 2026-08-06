@@ -166,7 +166,16 @@ This codebase has **zero `vi.mock()` usage anywhere** — that's a deliberate co
 2. `npm run release` — bumps `package.json` version (plain semver, no prerelease suffix), regenerates `CHANGELOG.md`, commits, tags `vX.Y.Z`.
 3. `git push --follow-tags`.
 4. Ensure `GH_TOKEN` (a personal token with `repo` scope — e.g. `gh auth token`) is set in your shell, then run `npm run build:win:publish`. This builds, then uploads the installer and `latest.yml` to a real GitHub Release for the tag — this is what makes the app-side self-update actually see the new version. Use plain `npm run build:win` (no publish) for local testing/`npm run verify:installer` runs.
-5. Testers (added as read-only GitHub collaborators on this private repo) either wait for the in-app update notice or download manually from the Releases page.
+5. **Verify the publish actually completed — don't trust exit code 0 alone.** Across the first three real releases under this mechanism, `electron-builder --publish always` exited 0 every time while silently leaving the GitHub Release incomplete in a different way each time: once missing the installer + `latest.yml` (only the blockmap made it), once missing the blockmap + `latest.yml`, and once uploading a `latest.yml` that was never regenerated for the new version at all (still pointed at the previous release's file/checksum — the local `dist/latest.yml` genuinely wasn't rewritten that run). Always check afterward:
+   ```
+   gh release view vX.Y.Z --repo Elias-Brendon/Qoutation --json isDraft,assets --jq '{isDraft, assets: [.assets[] | {name, size}]}'
+   ```
+   Expect exactly 3 assets (`*-setup.exe`, `*-setup.exe.blockmap`, `latest.yml`) and `isDraft: false`. If anything's missing or `dist/latest.yml` still shows the old version number, don't re-run the whole build — the local `dist/` artifacts are usually fine, it's specifically the upload that's unreliable. Recovery:
+   ```
+   gh release upload vX.Y.Z dist/eqoutation-X.Y.Z-setup.exe dist/eqoutation-X.Y.Z-setup.exe.blockmap dist/latest.yml --repo Elias-Brendon/Qoutation --clobber
+   ```
+   If `dist/latest.yml` is stale (wrong version inside), don't upload it as-is — either rerun `build:win:publish` to force regeneration, or hand-craft a correct one (`version`, `files[0].url`/`sha512`/`size`, top-level `path`/`sha512` all matching the actual installer's `sha512` in base64 — `node -e "console.log(require('crypto').createHash('sha512').update(require('fs').readFileSync('dist/eqoutation-X.Y.Z-setup.exe')).digest('base64'))"`) and `releaseDate` in ISO 8601. **Note:** `gh release upload local/path/latest.yml --clobber` reliably replaces an asset when the local filename already matches the target asset name — renaming via `local-path#asset-name` combined with `--clobber` was observed to silently no-op (upload exits 0, asset's `updatedAt` doesn't change) rather than actually replacing the content. If a wrong-content asset needs fixing and clobber isn't taking effect, `gh release delete-asset vX.Y.Z <name> --yes` then a plain `gh release upload` is the reliable path.
+6. Testers (added as read-only GitHub collaborators on this private repo) either wait for the in-app update notice or download manually from the Releases page.
 
 ### How self-update works (for debugging)
 
