@@ -166,7 +166,33 @@ This codebase has **zero `vi.mock()` usage anywhere** — that's a deliberate co
 2. `npm run release` — bumps `package.json` version (plain semver, no prerelease suffix), regenerates `CHANGELOG.md`, commits, tags `vX.Y.Z`.
 3. `git push --follow-tags`.
 4. `npm run build:win` to produce the installer, then `npm run verify:installer` to confirm it actually installs/launches/uninstalls cleanly.
-5. Testers (added as read-only GitHub collaborators on this private repo) download the new installer from the repo's Releases page. The app itself shows a small dismissible "vX.Y.Z available" notice in the TopBar once you've updated the public version-check Gist (`src/main/updateCheck/updateCheck.ts` has the URL) to the new version — no other distribution infrastructure exists by design (private repo, handful of known testers — see `docs/superpowers/specs/2026-08-03-auto-update-design.md`).
+5. **Update the public version-check Gist** (`src/main/updateCheck/updateCheck.ts` has the URL in `LATEST_VERSION_GIST_URL`) to the new version — this is the step that actually makes the app-side "update available" notice appear. Nothing else in this workflow does that; skipping it means testers never hear about the release even though it's built and pushed.
+6. Testers (added as read-only GitHub collaborators on this private repo) download the new installer from the repo's Releases page.
+
+### How the app checks for updates (for debugging)
+
+There is no `electron-updater`, no silent download, and nothing auto-installs — see `docs/superpowers/specs/2026-08-03-auto-update-design.md` for why. The whole mechanism is: fetch a version number from a Gist, compare it to `app.getVersion()`, and tell the user where to go get the new build themselves.
+
+- **On launch**, `checkForUpdate()` (`src/main/updateCheck/updateCheck.ts`) fetches `LATEST_VERSION_GIST_URL`'s raw JSON (`{"latestVersion": "X.Y.Z"}`) and, if that succeeds, caches an `UpdateStatus` in main-process memory. This call is best-effort and swallows every failure silently (offline, Gist unreachable, malformed JSON) — it must never block or interrupt startup, so check `main/index.ts`'s `app.whenReady()` block if you need to confirm it's still being called, not `updateCheck.ts` itself, if the app seems to never notice new versions.
+- **On demand**, clicking "Check for Updates" in Settings → About calls the same `checkForUpdate()` through the `app:checkForUpdate` IPC channel (`src/main/ipc/app.ipc.ts`), and — unlike the launch-time call — reports failure back to the UI instead of swallowing it.
+- Both paths write to the same cache, read by `app:getUpdateStatus`. The renderer's `useUpdateCheck()` React Query hook (`src/renderer/src/state/queries/useApp.ts`) reads that cache and is what both the TopBar pill (`UpdateNotice` in `TopBar.tsx`) and the Settings About section render from — there's one cache and one query key (`updateStatusQueryKey`), not two independent checks to keep in sync.
+- The TopBar pill additionally respects a per-version dismissal (`AppSettings.dismissedUpdateVersion`, persisted to `settings.json`) — dismissing "0.2.0 available" won't show that nag again, but "0.3.0 available" will. The Settings About section ignores dismissal entirely; it always shows the latest known check result.
+
+**How to test an actual update end-to-end, step by step:**
+
+1. Note your current build's version: `node -p "require('./package.json').version"` (e.g. `0.1.1`).
+2. Open the Gist directly in a browser at the raw URL in `LATEST_VERSION_GIST_URL` (`src/main/updateCheck/updateCheck.ts`) and edit it (as the Gist owner) to a version higher than your current build, e.g. `{"latestVersion": "9.9.9"}`. This is the same Gist you'd normally update in step 5 of the Release workflow above — using an obviously-fake high version here is deliberate, so you don't confuse a real release with a test.
+3. In the running app (`npm run dev` or the installed build), either restart it (triggers the launch-time check) or open Settings → About and click "Check for Updates" (triggers the on-demand check).
+4. Confirm: the TopBar shows the "v9.9.9 available" pill, and Settings → About shows "Update available: v9.9.9" with a working link to the Releases page.
+5. Click the TopBar pill's dismiss (×) button, confirm it disappears; restart the app and confirm it stays dismissed (this exercises `dismissedUpdateVersion` in `settings.json`).
+6. **Revert the Gist back to the real current version** before doing anything else — leaving it pointed at a fake version will make every tester's app show a bogus update notice.
+
+If you don't have edit access to the real Gist (e.g. testing from a different machine/account), point `LATEST_VERSION_GIST_URL` at a scratch Gist you do control instead, run through the same steps, then revert the code change — never commit a modified `LATEST_VERSION_GIST_URL`.
+
+**Debugging checklist:**
+- **"The app never shows an update is available" / "Settings always says up to date":** first confirm the Gist itself was actually updated (step 5 of the Release workflow is the most commonly forgotten release step) — open `LATEST_VERSION_GIST_URL` directly in a browser or `curl` it and check the `latestVersion` value.
+- **"Check for Updates spins forever or errors immediately":** almost certainly a network/DNS issue reaching `gist.githubusercontent.com`, or the Gist was made private/deleted — the JSON must be reachable unauthenticated.
+- **"Update shows available but shouldn't, or vice versa":** check `isNewerVersion()`'s three-part numeric comparison (`updateCheck.ts`) against the actual `package.json` version and the Gist's value — it does not understand prerelease suffixes (`1.0.0-beta`), only plain `X.Y.Z`.
 
 ## Where things live (quick reference)
 
