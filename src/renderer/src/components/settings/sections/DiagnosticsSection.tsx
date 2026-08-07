@@ -9,10 +9,9 @@ export function DiagnosticsSection(): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-text-primary">Diagnostics</h3>
       <p className="text-xs text-text-secondary">
-        Exports a local diagnostic bundle — recent app errors and crashes, plus basic system info
-        (app version, OS, memory) — as a JSON file. Nothing is sent anywhere automatically; if you
-        want to share this with the developer to help debug an issue, you choose to send the file
-        yourself.
+        Exports a local diagnostic bundle recent app errors and crashes, plus basic system info (app
+        version, OS, memory) as a JSON file. Nothing is sent anywhere automatically; if you want to
+        share this with the developer to help debug an issue, you choose to send the file yourself.
       </p>
       <Button
         variant="outline"

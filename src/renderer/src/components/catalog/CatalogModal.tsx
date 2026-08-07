@@ -129,7 +129,7 @@ export function CatalogModal({ open, onClose, project }: CatalogModalProps): Rea
                 <tr>
                   <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                     {status?.itemCount === 0
-                      ? 'No catalog loaded yet — click Reload.'
+                      ? 'No catalog loaded yet, click Reload.'
                       : 'No matching items.'}
                   </td>
                 </tr>

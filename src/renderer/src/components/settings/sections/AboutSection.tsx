@@ -65,7 +65,7 @@ export function AboutSection(): React.JSX.Element {
         <div>
           <p className="font-semibold">Beta software</p>
           <p className="mt-0.5">
-            This is a beta release — expect bugs. Use for evaluation, not production-critical work
+            This is a beta release expect bugs. Use for evaluation, not production-critical work
             without a backup.
           </p>
         </div>
@@ -115,7 +115,7 @@ function UpdateStatusLine({
   }
 
   if (didFail) {
-    return <p className="text-xs text-danger">Update failed to download — try again.</p>
+    return <p className="text-xs text-danger">Update failed to download, try again.</p>
   }
 
   if (isPending) {
@@ -125,7 +125,7 @@ function UpdateStatusLine({
   if (lastCheckSucceeded === false) {
     return (
       <p className="text-xs text-danger">
-        Couldn&apos;t check for updates — check your connection and try again.
+        Couldn&apos;t check for updates, check your connection and try again.
       </p>
     )
   }

@@ -14,7 +14,7 @@ export function ErrorMessage({ message, className }: ErrorMessageProps): React.J
   return (
     <span className={cn(className)}>
       {code && <strong className="font-mono font-semibold">{code}</strong>}
-      {code && ' — '}
+      {code && ', '}
       {explanation}
     </span>
   )

@@ -69,7 +69,10 @@ export function CatalogItemPicker({
     return () => clearTimeout(timeout)
   }, [query])
 
-  const { data: results = [], isFetching } = useCatalogSearch(debouncedQuery, isOpen && step === 'search')
+  const { data: results = [], isFetching } = useCatalogSearch(
+    debouncedQuery,
+    isOpen && step === 'search'
+  )
 
   const handleAddSubmit = (): void => {
     if (!form.sku.trim() || !form.description.trim()) return
@@ -107,7 +110,10 @@ export function CatalogItemPicker({
             {results.map((item) => (
               <tr key={item.id} className="border-b border-border last:border-0">
                 <td className="px-2 py-1 font-mono text-text-secondary">{item.sku}</td>
-                <td className="max-w-40 truncate px-2 py-1 text-text-primary" title={item.description}>
+                <td
+                  className="max-w-40 truncate px-2 py-1 text-text-primary"
+                  title={item.description}
+                >
                   {item.description}
                 </td>
                 <td className="px-2 py-1 text-text-secondary">{item.maker}</td>
@@ -147,7 +153,7 @@ export function CatalogItemPicker({
           Cancel
         </Button>
         <Button variant="accent" size="sm" onClick={() => onStepChange('add')}>
-          Not in catalog — add it
+          Not in catalog, add it
         </Button>
       </div>
     </div>
@@ -172,12 +178,18 @@ export function CatalogItemPicker({
           <Input value={form.maker} onChange={(e) => setForm({ ...form, maker: e.target.value })} />
         </Field>
         <Field label="Family">
-          <Input value={form.family} onChange={(e) => setForm({ ...form, family: e.target.value })} />
+          <Input
+            value={form.family}
+            onChange={(e) => setForm({ ...form, family: e.target.value })}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Series">
-          <Input value={form.series} onChange={(e) => setForm({ ...form, series: e.target.value })} />
+          <Input
+            value={form.series}
+            onChange={(e) => setForm({ ...form, series: e.target.value })}
+          />
         </Field>
         <Field label="Discount factor">
           <Input

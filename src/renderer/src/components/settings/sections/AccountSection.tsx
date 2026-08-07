@@ -80,13 +80,11 @@ export function AccountSection({ user, onLogout }: AccountSectionProps): React.J
           </p>
         ) : (
           <p className="text-xs text-warning">
-            No recovery question set — if you forget your password, you won't be able to reset it.
-            Set one up now.
+            No recovery question set, if you forget your password, you won&apos;t be able to reset
+            it. Set one up now.
           </p>
         )}
-        {savedJustNow && (
-          <p className="mt-1 text-xs text-success">Recovery question saved.</p>
-        )}
+        {savedJustNow && <p className="mt-1 text-xs text-success">Recovery question saved.</p>}
         <form onSubmit={handleSetRecovery} className="mt-2 flex flex-col gap-2">
           <select
             value={securityQuestion}
@@ -156,9 +154,7 @@ export function AccountSection({ user, onLogout }: AccountSectionProps): React.J
               <ErrorMessage message={passwordError} />
             </p>
           )}
-          {passwordChangedJustNow && (
-            <p className="text-xs text-success">Password changed.</p>
-          )}
+          {passwordChangedJustNow && <p className="text-xs text-success">Password changed.</p>}
           <Button
             type="submit"
             variant="outline"

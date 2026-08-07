@@ -7,7 +7,7 @@ import { Tabs } from '@renderer/components/common/Tabs'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
 import { CatalogResolveModal } from '@renderer/components/quotation/CatalogResolveModal'
 import { ConfidenceResolveDrawer } from '@renderer/components/quotation/ConfidenceResolveDrawer'
-import { AddLineModal } from '@renderer/components/quotation/AddLineModal'
+import { AddItemModal } from '@renderer/components/quotation/AddItemModal'
 import {
   useGenerateQuotation,
   useQuotation,
@@ -89,8 +89,8 @@ function PanelMarginField({
   const updatePanelMargin = useUpdatePanelMargin()
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncs the editable input to the server value when the panel/margin changes, not a render-cascade risk
     setValue(uniformMargin?.toString() ?? '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelName, uniformMargin])
 
   const commit = (): void => {
@@ -149,10 +149,11 @@ export function QuotationTable({
   const [resolveLine, setResolveLine] = useState<QuotationLine | null>(null)
   const [confidenceLine, setConfidenceLine] = useState<QuotationLine | null>(null)
   const [activeTab, setActiveTab] = useState<string>(FULL_BOM_TAB)
-  const [addLineOpen, setAddLineOpen] = useState(false)
+  const [addItemOpen, setAddItemOpen] = useState(false)
 
   // Tab selection is per-quotation, not persisted across switching SLDs/quotations.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the active tab when the quotation changes, not a render-cascade risk
     setActiveTab(FULL_BOM_TAB)
   }, [quotation?.id])
 
@@ -230,7 +231,7 @@ export function QuotationTable({
   if (!quotation) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border-strong bg-surface text-sm text-text-muted">
-        <div>No quotation yet — generate one from the extracted components.</div>
+        <div>No quotation yet, generate one from the extracted components.</div>
         <Button
           variant="accent"
           size="sm"
@@ -270,9 +271,9 @@ export function QuotationTable({
           </span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setAddLineOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setAddItemOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            Add line
+            Add item
           </Button>
           <Button
             variant="outline"
@@ -340,7 +341,7 @@ export function QuotationTable({
                     onRevealLineAnnotation?.(line.id)
                   }}
                   onDoubleClick={() => handleRowDoubleClick(line)}
-                  title="Click to jump the PDF to this page — double-click to find or set this line's catalog item"
+                  title="Click to jump the PDF to this page, double-click to find or set this line's catalog item"
                   className={cn(
                     'group cursor-pointer border-b border-border last:border-0 hover:bg-surface-hover',
                     line.matchStatus === 'unknown' && 'bg-danger-bg/40'
@@ -425,15 +426,17 @@ export function QuotationTable({
         />
       )}
 
-      {addLineOpen && (
-        <AddLineModal
+      {addItemOpen && (
+        <AddItemModal
           open
-          onClose={() => setAddLineOpen(false)}
+          onClose={() => setAddItemOpen(false)}
           quotationId={quotation.id}
           sldId={sldId}
           projectId={projectId}
           panelNames={panelNames}
-          initialPageNumber={activeTab === FULL_BOM_TAB ? null : (visibleLines[0]?.pageNumber ?? null)}
+          initialPageNumber={
+            activeTab === FULL_BOM_TAB ? null : (visibleLines[0]?.pageNumber ?? null)
+          }
           initialPanelName={activeTab === FULL_BOM_TAB ? null : activeTab}
         />
       )}

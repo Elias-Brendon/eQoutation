@@ -15,10 +15,7 @@ export function MarginsSection(): React.JSX.Element {
     e.preventDefault()
     const parsed = Number(displayValue)
     if (!Number.isFinite(parsed) || parsed <= 0) return
-    updateSettings.mutate(
-      { defaultMargin: parsed },
-      { onSuccess: () => setSavedJustNow(true) }
-    )
+    updateSettings.mutate({ defaultMargin: parsed }, { onSuccess: () => setSavedJustNow(true) })
   }
 
   return (
@@ -26,8 +23,8 @@ export function MarginsSection(): React.JSX.Element {
       <h3 className="text-sm font-semibold text-text-primary">Margins</h3>
       <p className="text-xs text-text-secondary">
         Default markup applied over catalog cost when a quotation is generated (e.g. 1.35 = 35%
-        margin). Applies to new quotations only — existing lines can still be overridden
-        individually in the Quotation table.
+        margin). Applies to new quotations only existing lines can still be overridden individually
+        in the Quotation table.
       </p>
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div>

@@ -159,7 +159,7 @@ function App(): React.JSX.Element {
 
   const handleDeleteQuotation = async (quotation: Quotation): Promise<void> => {
     const confirmed = window.confirm(
-      `Delete quotation ${quotation.code}? This can't be undone — it can always be regenerated from the SLD's extraction.`
+      `Delete quotation ${quotation.code}? This can't be undone, it can always be regenerated from the SLD's extraction.`
     )
     if (!confirmed || !selectedProject) return
     await deleteQuotation.mutateAsync({
@@ -172,7 +172,7 @@ function App(): React.JSX.Element {
 
   const handleDeleteProject = async (project: Project): Promise<void> => {
     const confirmed = window.confirm(
-      `Delete project "${project.name}"? This permanently removes every SLD, quotation, and file in it — this can't be undone.`
+      `Delete project "${project.name}"? This permanently removes every SLD, quotation, and file in it this can't be undone.`
     )
     if (!confirmed) return
     await deleteProject.mutateAsync(project.id)

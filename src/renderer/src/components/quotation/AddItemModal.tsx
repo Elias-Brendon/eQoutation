@@ -10,7 +10,7 @@ import { useProjects } from '@renderer/state/queries/useProjects'
 import { currencySymbol } from '@shared/constants/currencies'
 import type { CatalogItem, NewCatalogItemInput } from '@shared/types/entities'
 
-interface AddLineModalProps {
+interface AddItemModalProps {
   open: boolean
   onClose: () => void
   quotationId: string
@@ -21,7 +21,7 @@ interface AddLineModalProps {
   initialPanelName: string | null
 }
 
-export function AddLineModal({
+export function AddItemModal({
   open,
   onClose,
   quotationId,
@@ -30,31 +30,31 @@ export function AddLineModal({
   panelNames,
   initialPageNumber,
   initialPanelName
-}: AddLineModalProps): React.JSX.Element {
+}: AddItemModalProps): React.JSX.Element {
   const [step, setStep] = useState<Step>('search')
   const [pageNumber, setPageNumber] = useState(initialPageNumber ?? 1)
   const [panelName, setPanelName] = useState(initialPanelName ?? panelNames[0] ?? '')
   const [qty, setQty] = useState(1)
 
-  const addLine = useAddQuotationLine()
-  const addLineWithNewCatalogItem = useAddQuotationLineWithNewCatalogItem()
+  const addItem = useAddQuotationLine()
+  const addItemWithNewCatalogItem = useAddQuotationLineWithNewCatalogItem()
   const { data: projects = [] } = useProjects()
   const project = projects.find((p) => p.id === projectId)
   const exchangeRate = project?.exchangeRate ?? 1
   const currency = currencySymbol(project?.currency ?? 'MYR')
 
-  const lineInput = { pageNumber, panelName, qty }
+  const itemInput = { pageNumber, panelName, qty }
 
   const handlePick = (item: CatalogItem): void => {
-    addLine.mutate(
-      { quotationId, catalogItemId: item.id, input: lineInput, sldId },
+    addItem.mutate(
+      { quotationId, catalogItemId: item.id, input: itemInput, sldId },
       { onSuccess: onClose }
     )
   }
 
   const handleSubmitNew = (input: NewCatalogItemInput): void => {
-    addLineWithNewCatalogItem.mutate(
-      { quotationId, catalogInput: input, input: lineInput, sldId },
+    addItemWithNewCatalogItem.mutate(
+      { quotationId, catalogInput: input, input: itemInput, sldId },
       { onSuccess: onClose }
     )
   }
@@ -63,7 +63,7 @@ export function AddLineModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={step === 'search' ? 'Add line — find catalog item' : 'Add line — add to catalog'}
+      title={step === 'search' ? 'Add item, find catalog item' : 'Add item, add to catalog'}
       className="w-[560px] max-w-[90vw]"
     >
       <div className="mb-3 grid grid-cols-3 gap-2">
@@ -81,9 +81,9 @@ export function AddLineModal({
           <Input
             value={panelName}
             onChange={(e) => setPanelName(e.target.value)}
-            list="add-line-panel-names"
+            list="add-item-panel-names"
           />
-          <datalist id="add-line-panel-names">
+          <datalist id="add-item-panel-names">
             {panelNames.map((name) => (
               <option key={name} value={name} />
             ))}
@@ -110,10 +110,10 @@ export function AddLineModal({
         currency={currency}
         onPickExisting={handlePick}
         onSubmitNew={handleSubmitNew}
-        pickPending={addLine.isPending}
-        submitPending={addLineWithNewCatalogItem.isPending}
-        pickErrorMessage={addLine.error?.message}
-        submitErrorMessage={addLineWithNewCatalogItem.error?.message}
+        pickPending={addItem.isPending}
+        submitPending={addItemWithNewCatalogItem.isPending}
+        pickErrorMessage={addItem.error?.message}
+        submitErrorMessage={addItemWithNewCatalogItem.error?.message}
         onCancel={onClose}
       />
     </Modal>

@@ -39,7 +39,7 @@ export function SetupScreen(): React.JSX.Element {
           Create your account
         </h1>
         <p className="mb-5 text-center text-xs text-text-secondary">
-          First run — set up the local account that guards this app.
+          First run, set up the local account that guards this app.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <Input
@@ -67,7 +67,7 @@ export function SetupScreen(): React.JSX.Element {
 
           <div className="mt-1 border-t border-border pt-3">
             <p className="mb-2 text-xs text-text-secondary">
-              Choose a security question — this is how you'll recover your account if you forget
+              Choose a security question, this is how you&apos;ll recover your account if you forget
               your password.
             </p>
             <select
@@ -94,12 +94,7 @@ export function SetupScreen(): React.JSX.Element {
               <ErrorMessage message={error} />
             </p>
           )}
-          <Button
-            type="submit"
-            variant="accent"
-            disabled={setup.isPending}
-            className="mt-1 w-full"
-          >
+          <Button type="submit" variant="accent" disabled={setup.isPending} className="mt-1 w-full">
             {setup.isPending ? 'Creating…' : 'Create account'}
           </Button>
         </form>

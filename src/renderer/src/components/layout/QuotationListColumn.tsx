@@ -29,7 +29,7 @@ export function QuotationListColumn({
       </div>
       {quotations.length === 0 && (
         <div className="px-4 py-6 text-center text-xs text-text-muted">
-          No quotations yet — generate one from the extracted components on the Quotation tab.
+          No quotations yet generate one from the extracted components on the Quotation tab.
         </div>
       )}
       <div className="flex-1 overflow-y-auto px-2 pb-4">

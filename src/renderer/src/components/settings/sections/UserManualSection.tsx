@@ -25,33 +25,33 @@ export function UserManualSection(): React.JSX.Element {
       </Section>
 
       <Section title="2. Run AI extraction">
-        Open an uploaded SLD and click &quot;Re-run&quot; (or generate the first extraction) to have Claude
-        read the drawing and extract a bill of materials. Progress shows live in the top bar.
+        Open an uploaded SLD and click &quot;Re-run&quot; (or generate the first extraction) to have
+        Claude read the drawing and extract a bill of materials. Progress shows live in the top bar.
         Extraction respects the component types enabled in Settings → Components.
       </Section>
 
       <Section title="3. Generate and review the quotation">
-        Once extraction finishes, switch to the &quot;Quotation (Excel)&quot; tab and generate a priced
-        quotation. Each line is matched against your catalog automatically; unmatched lines are
-        highlighted and can be resolved by double-clicking them.
+        Once extraction finishes, switch to the &quot;Quotation (Excel)&quot; tab and generate a
+        priced quotation. Each line is matched against your catalog automatically; unmatched lines
+        are highlighted and can be resolved by double-clicking them.
       </Section>
 
       <Section title="4. Resolve flags">
-        The Flags panel collects anything that needs human attention — unmatched catalog items,
+        The Flags panel collects anything that needs human attention unmatched catalog items,
         AI-raised warnings (e.g. an ambiguous rating), or notes you add yourself. Resolve a flag
         once you&apos;ve addressed it.
       </Section>
 
       <Section title="5. Adjust pricing">
         Settings → Margins sets the default markup applied to new quotations. Any individual
-        line&apos;s margin can also be edited inline in the Quotation table — useful for one-off
+        line&apos;s margin can also be edited inline in the Quotation table useful for one-off
         discounts or premium items.
       </Section>
 
       <Section title="6. Approve and export">
-        Once a quotation looks right, Approve it (with an optional comment), then use
-        &quot;Export quotation&quot; for a single .xlsx, or &quot;Export project&quot; in the top
-        bar to bundle every SLD and quotation for the project into one .zip with a manifest.
+        Once a quotation looks right, Approve it (with an optional comment), then use &quot;Export
+        quotation&quot; for a single .xlsx, or &quot;Export project&quot; in the top bar to bundle
+        every SLD and quotation for the project into one .zip with a manifest.
       </Section>
 
       <Section title="7. Catalog and account">
@@ -116,10 +116,9 @@ function ErrorCodesSection(): React.JSX.Element {
     <div>
       <h4 className="mb-1 text-xs font-semibold text-text-primary">9. Error codes</h4>
       <p className="mb-2">
-        Every error the app shows starts with a short code, e.g.
-        &quot;Error AI-002: ...&quot; — it doesn&apos;t expose any internal detail, just which
-        known issue you hit. If something keeps happening, note the code below when asking for
-        help.
+        Every error the app shows starts with a short code, e.g. &quot;Error AI-002: ...&quot; it
+        doesn&apos;t expose any internal detail, just which known issue you hit. If something keeps
+        happening, note the code below when asking for help.
       </p>
       <div className="flex flex-col gap-3">
         {domains.map((domain) => (
@@ -149,7 +148,13 @@ function ErrorCodesSection(): React.JSX.Element {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
+function Section({
+  title,
+  children
+}: {
+  title: string
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
     <div>
       <h4 className="mb-1 text-xs font-semibold text-text-primary">{title}</h4>

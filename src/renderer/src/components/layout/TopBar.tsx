@@ -141,9 +141,7 @@ export function TopBar({
         size="md"
         onClick={onExportProject}
         disabled={!project || exportPending}
-        title={
-          project ? 'Export project bundle (SLDs + quotations + manifest) — Ctrl+E' : undefined
-        }
+        title={project ? 'Export project bundle (SLDs + quotations + manifest), Ctrl+E' : undefined}
         aria-label="Export project"
       >
         {exportPending ? (
@@ -158,7 +156,7 @@ export function TopBar({
         variant="outline"
         size="md"
         onClick={onNewProject}
-        title="New project — Ctrl+Shift+N"
+        title="New project, Ctrl+Shift+N"
         aria-label="New project"
       >
         <Plus className="h-4 w-4" />
@@ -170,7 +168,7 @@ export function TopBar({
         size="md"
         onClick={onUploadClick}
         disabled={!project}
-        title="Upload PDF — Ctrl+U"
+        title="Upload PDF, Ctrl+U"
         aria-label="Upload PDF"
       >
         <Upload className="h-4 w-4" />
@@ -307,8 +305,8 @@ function CurrencyField({
             }}
             title={
               project.exchangeRateIsManual
-                ? 'Manual rate override — click refresh to use the live rate again'
-                : 'Rate from Frankfurter, cached once a day — edit to override manually'
+                ? 'Manual rate override click refresh to use the live rate again'
+                : 'Rate from Frankfurter, cached once a day edit to override manually'
             }
             className="h-7 w-16 rounded border border-border-strong bg-surface px-1.5 text-center text-xs text-text-primary focus:border-accent focus:outline-none"
           />
@@ -411,7 +409,7 @@ function UpdateNotice(): React.JSX.Element | null {
         title={`Download and install v${status.latestVersion}`}
         className="hover:underline"
       >
-        {didFail ? 'Update failed — retry' : `v${status.latestVersion} available`}
+        {didFail ? 'Update failed retry' : `v${status.latestVersion} available`}
       </button>
       <button
         type="button"

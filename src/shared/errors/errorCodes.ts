@@ -27,7 +27,10 @@ export const ERROR_CODES = {
   AI_RESPONSE_UNREADABLE: { code: 'AI-006', message: 'Unreadable AI response' },
   AI_REQUEST_FAILED: { code: 'AI-007', message: 'Extraction failed' },
   AI_KEY_TEST_FAILED: { code: 'AI-008', message: 'AI key test failed' },
-  AI_ALREADY_EXTRACTED: { code: 'AI-009', message: 'SLD already extracted — re-extraction requires confirmation' },
+  AI_ALREADY_EXTRACTED: {
+    code: 'AI-009',
+    message: 'SLD already extracted  re-extraction requires confirmation'
+  },
   AI_PAGE_RENDER_FAILED: { code: 'AI-010', message: 'Could not render PDF pages for extraction' },
 
   // Records that no longer exist

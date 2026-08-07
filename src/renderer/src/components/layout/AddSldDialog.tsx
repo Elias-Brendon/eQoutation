@@ -30,7 +30,7 @@ export function AddSldDialog({ open, projectId, onClose }: AddSldDialogProps): R
             autoFocus
             value={sectionGroup}
             onChange={(e) => setSectionGroup(e.target.value)}
-            placeholder="Substation A — Phase 2"
+            placeholder="Substation A, Phase 2"
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">

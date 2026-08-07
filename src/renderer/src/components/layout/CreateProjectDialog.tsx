@@ -53,7 +53,7 @@ export function CreateProjectDialog({
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Substation A — Phase 2"
+            placeholder="Substation A, Phase 2"
           />
         </div>
         <div>

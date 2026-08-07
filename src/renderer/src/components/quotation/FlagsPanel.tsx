@@ -213,7 +213,7 @@ export function FlagsPanel({
                   {flagOriginMeta[flag.origin].label}
                 </Badge>{' '}
                 {flag.message}
-                {flag.resolutionNote && <span> — {flag.resolutionNote}</span>}
+                {flag.resolutionNote && <span>, {flag.resolutionNote}</span>}
               </div>
             ))}
           </div>

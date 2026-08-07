@@ -30,7 +30,7 @@ export function ExtractionRulesSection(): React.JSX.Element {
         <p className="mt-1 text-xs text-text-secondary">
           Company-specific rules appended to every AI extraction prompt, alongside the built-in
           rules and preferred-brand guidance. Use these for conventions the built-in rules
-          don&apos;t cover — e.g. a house style for a specific component.
+          don&apos;t cover e.g. a house style for a specific component.
         </p>
       </div>
 

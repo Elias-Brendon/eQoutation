@@ -9,10 +9,10 @@ export function TrainingDataSection(): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-text-primary">Training Data</h3>
       <p className="text-xs text-text-secondary">
-        Exports every recorded AI-vs-human correction (from resolving flags and confidence
-        prompts, across all projects) as a JSON Lines file — useful later for expanding
-        extraction rules or training a local model. Each row includes the SLD, page, and the
-        original AI value alongside what a human confirmed or corrected it to.
+        Exports every recorded AI-vs-human correction (from resolving flags and confidence prompts,
+        across all projects) as a JSON Lines file useful later for expanding extraction rules or
+        training a local model. Each row includes the SLD, page, and the original AI value alongside
+        what a human confirmed or corrected it to.
       </p>
       <Button
         variant="outline"

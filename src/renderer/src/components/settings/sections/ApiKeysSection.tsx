@@ -19,14 +19,14 @@ export function ApiKeysSection(): React.JSX.Element {
         <ApiKeyField
           keyName="openaiCompatibleApiKey"
           label="OpenAI-Compatible API Key"
-          description="Your API key for the provider configured in Settings > AI Model (OpenAI, Qwen, Grok, or a local server). Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except that provider's endpoint."
+          description="Your API key for the provider configured in Settings > AI Model (OpenAI, Qwen, Grok, or a local server). Stored encrypted at rest via your OS's secure storage, never logged or sent anywhere except that provider's endpoint."
           placeholder="sk-…"
         />
       ) : (
         <ApiKeyField
           keyName="anthropicApiKey"
           label="Anthropic API Key"
-          description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage — never logged or sent anywhere except Anthropic's API. Testing the connection also refreshes the model list in Settings > AI Model."
+          description="Your Anthropic API key, used for AI extraction. Stored encrypted at rest via your OS's secure storage, never logged or sent anywhere except Anthropic's API. Testing the connection also refreshes the model list in Settings > AI Model."
           placeholder="sk-ant-…"
         />
       )}
@@ -41,7 +41,12 @@ interface ApiKeyFieldProps {
   placeholder: string
 }
 
-function ApiKeyField({ keyName, label, description, placeholder }: ApiKeyFieldProps): React.JSX.Element {
+function ApiKeyField({
+  keyName,
+  label,
+  description,
+  placeholder
+}: ApiKeyFieldProps): React.JSX.Element {
   const { data: maskedKey } = useApiKeyMasked(keyName)
   const setApiKey = useSetApiKey(keyName)
   const testApiKey = useTestApiKey(keyName)
@@ -74,7 +79,8 @@ function ApiKeyField({ keyName, label, description, placeholder }: ApiKeyFieldPr
       <p className="text-xs text-text-secondary">{description}</p>
       <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-text-secondary">
         <span>
-          Current key: <span className="font-mono text-text-primary">{maskedKey ?? 'none set'}</span>
+          Current key:{' '}
+          <span className="font-mono text-text-primary">{maskedKey ?? 'none set'}</span>
         </span>
         {maskedKey && (
           <Button

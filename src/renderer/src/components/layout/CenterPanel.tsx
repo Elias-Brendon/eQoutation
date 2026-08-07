@@ -50,7 +50,7 @@ function Rail({ side, label, onExpand }: RailProps): React.JSX.Element {
   return (
     <button
       onClick={onExpand}
-      title={`Back to split view (${label}) — Ctrl+1`}
+      title={`Back to split view (${label}), Ctrl+1`}
       className="flex w-10 shrink-0 flex-col items-center gap-2 rounded-lg border border-border bg-surface py-3 transition-colors hover:bg-surface-hover"
     >
       <Icon className="h-3.5 w-3.5 text-text-secondary" />
@@ -83,6 +83,7 @@ export function CenterPanel({
 
   // Cross-reference target is per-SLD, not persisted across selection changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the cross-reference target when the selected SLD changes, not a render-cascade risk
     setFocusPage(undefined)
   }, [sld?.id])
 
@@ -154,7 +155,7 @@ export function CenterPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPanelModeChange('pdf-full')}
-                  title="Expand PDF diagram — Ctrl+2"
+                  title="Expand PDF diagram, Ctrl+2"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Button>
@@ -184,7 +185,7 @@ export function CenterPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => onPanelModeChange('quotation-full')}
-                  title="Expand quotation — Ctrl+3"
+                  title="Expand quotation, Ctrl+3"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </Button>

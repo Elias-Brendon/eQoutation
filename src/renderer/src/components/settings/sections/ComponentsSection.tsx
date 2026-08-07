@@ -49,7 +49,7 @@ export function ComponentsSection(): React.JSX.Element {
       value={preferredBrandsByType[type] ?? ''}
       onChange={(e) => setPreferredBrandForType(type, e.target.value)}
       disabled={makers.length === 0}
-      title="Preferred brand for this component type — overrides the project-wide Preferred Brands list"
+      title="Preferred brand for this component type, overrides the project-wide Preferred Brands list"
       className="h-6 rounded border border-border-strong bg-surface px-1 text-[11px] text-text-secondary focus:border-accent focus:outline-none disabled:opacity-50"
     >
       <option value="">Project preference</option>
