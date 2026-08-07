@@ -16,15 +16,15 @@ export function CatalogPathSection(): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-text-primary">Catalog Path</h3>
       <p className="text-xs text-text-secondary">
-        The folder containing your catalog .xlsx file. The first .xlsx found there is loaded as
-        the source of truth for pricing and matching.
+        The folder containing your catalog .xlsx file. The first .xlsx found there is loaded as the
+        source of truth for pricing and matching.
       </p>
       <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs">
         <div className="truncate text-text-secondary" title={status?.catalogDir}>
-          {status?.catalogDir ?? '—'}
+          {status?.catalogDir ?? 'Not set'}
         </div>
         <div className="mt-0.5 text-text-muted">
-          {status ? `${status.itemCount} items` : '—'} · last synced{' '}
+          {status ? `${status.itemCount} items` : 'Loading…'} · last synced{' '}
           {formatTimestamp(status?.lastSyncedAt ?? null)}
         </div>
       </div>

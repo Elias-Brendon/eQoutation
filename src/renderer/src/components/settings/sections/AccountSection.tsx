@@ -65,7 +65,8 @@ export function AccountSection({ user, onLogout }: AccountSectionProps): React.J
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-semibold text-text-primary">Account</h3>
       <p className="text-xs text-text-secondary">
-        Logged in as <span className="font-medium text-text-primary">{user?.username ?? '—'}</span>.
+        Logged in as{' '}
+        <span className="font-medium text-text-primary">{user?.username ?? 'Not set'}</span>.
       </p>
       <Button variant="outline" size="sm" className="w-fit" onClick={onLogout}>
         <LogOut className="h-3.5 w-3.5" />
