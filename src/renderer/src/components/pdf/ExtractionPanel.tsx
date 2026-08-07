@@ -2,7 +2,6 @@ import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
-import { useUiStore } from '@renderer/state/useUiStore'
 import { useExtractSld, useExtraction } from '@renderer/state/queries/useExtraction'
 import { useSettings } from '@renderer/state/queries/useSettings'
 import { useUpdateProjectAiModelOverride } from '@renderer/state/queries/useProjects'
@@ -17,17 +16,12 @@ interface ExtractionPanelProps {
 export function ExtractionPanel({ sldId, project }: ExtractionPanelProps): React.JSX.Element {
   const { data: extraction } = useExtraction(sldId)
   const extractSld = useExtractSld()
-  const liveProgress = useUiStore((s) =>
-    s.extractionProgress?.sldId === sldId ? s.extractionProgress : null
-  )
   const { data: settings } = useSettings()
   const updateAiModelOverride = useUpdateProjectAiModelOverride()
   const globalModelLabel =
     AVAILABLE_AI_MODELS.find((m) => m.id === settings?.aiModel)?.label ?? settings?.aiModel ?? '—'
 
   const running = extraction?.status === 'running' || extractSld.isPending
-  const pct = liveProgress?.pct ?? (running ? 5 : 0)
-  const stage = liveProgress?.stage ?? (running ? 'Starting…' : '')
 
   const alreadyExtracted = extraction?.status === 'done'
 
@@ -54,7 +48,8 @@ export function ExtractionPanel({ sldId, project }: ExtractionPanelProps): React
               <Badge tone="success">{extraction.components.length} components</Badge>
               {extraction.inputTokens !== null && extraction.outputTokens !== null && (
                 <Badge tone="neutral">
-                  {formatTokenCount(extraction.inputTokens)} in / {formatTokenCount(extraction.outputTokens)} out
+                  {formatTokenCount(extraction.inputTokens)} in /{' '}
+                  {formatTokenCount(extraction.outputTokens)} out
                 </Badge>
               )}
             </>
@@ -94,18 +89,6 @@ export function ExtractionPanel({ sldId, project }: ExtractionPanelProps): React
               </option>
             ))}
           </select>
-        </div>
-      )}
-
-      {running && (
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-raised">
-            <div
-              className="h-full rounded-full bg-accent transition-all duration-300"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <span className="w-32 shrink-0 font-mono text-[11px] text-text-muted">{stage}</span>
         </div>
       )}
 

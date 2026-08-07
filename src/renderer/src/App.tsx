@@ -111,7 +111,19 @@ function App(): React.JSX.Element {
   }, [])
   const showSplash = projectsLoading || !splashMinTimeElapsed
 
-  useEffect(() => window.api.ai.onProgress(setExtractionProgress), [setExtractionProgress])
+  // 'Done'/'Failed' are terminal stages the providers send as their last
+  // progress event — clear to null on them instead of storing the snapshot,
+  // otherwise extractionProgress (and anything gated on it, e.g. TopBar's
+  // indicator) stays truthy forever after extraction actually finishes.
+  useEffect(
+    () =>
+      window.api.ai.onProgress((progress) => {
+        setExtractionProgress(
+          progress.stage === 'Done' || progress.stage === 'Failed' ? null : progress
+        )
+      }),
+    [setExtractionProgress]
+  )
 
   // Auto-select the last-active project once both the project list and
   // settings have loaded. Falls back to the most-recently-created project

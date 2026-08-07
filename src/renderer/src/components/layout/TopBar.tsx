@@ -15,7 +15,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { Logo } from '@renderer/components/animation/Logo'
 import { Button } from '@renderer/components/common/Button'
+import { DotmSquare2 } from '@renderer/components/ui/dotm-square-2'
 import { cn } from '@renderer/lib/cn'
+import { pctToDotmSpeed } from '@renderer/lib/extractionAnimationSpeed'
 import { useUpdateProjectCurrencySettings } from '@renderer/state/queries/useProjects'
 import { useFxRate } from '@renderer/state/queries/useFx'
 import { useProjectTokenUsage } from '@renderer/state/queries/useAiUsage'
@@ -61,10 +63,6 @@ export function TopBar({
   onOpenProjectSwitcher,
   onOpenProjectDetails
 }: TopBarProps): React.JSX.Element {
-  const progressPct = extractionProgress?.pct ?? project?.aiProgressPct ?? 0
-  const progressLabel = extractionProgress
-    ? `${extractionProgress.stage.toUpperCase()}`
-    : 'AI GENERATION'
   return (
     <header className="flex h-16 shrink-0 items-center gap-6 border-b border-border bg-surface px-5">
       <Logo />
@@ -88,32 +86,22 @@ export function TopBar({
       {project && <CurrencyField project={project} compact={compact} />}
       {project && <TokenUsageBadge projectId={project.id} />}
 
-      <div className="ml-4 flex flex-1 items-center gap-3">
-        {project && (
+      <div className="ml-4 flex min-w-0 flex-1 items-center gap-3">
+        {project && extractionProgress && (
           <>
-            {!compact && (
-              <span
-                className="shrink-0 font-mono text-[11px] tracking-wider text-text-muted"
-                title={progressLabel}
-              >
-                {progressLabel}
-              </span>
-            )}
-            <div
-              className={cn(
-                'h-1.5 overflow-hidden rounded-full bg-surface-raised',
-                compact ? 'w-16' : 'w-40'
-              )}
-              title={progressLabel}
+            <DotmSquare2
+              animated
+              speed={pctToDotmSpeed(extractionProgress.pct)}
+              size={20}
+              dotSize={3}
+              className="shrink-0 text-accent"
+            />
+            <span
+              className="min-w-0 truncate font-mono text-[11px] tracking-wider text-text-muted"
+              title={extractionProgress.stage.toUpperCase()}
             >
-              <motion.div
-                className="h-full rounded-full bg-accent"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-            </div>
-            <span className="shrink-0 font-mono text-xs text-accent">{progressPct}%</span>
+              {extractionProgress.stage.toUpperCase()}
+            </span>
           </>
         )}
       </div>
@@ -217,6 +205,7 @@ function CurrencyField({
   const isMyr = project.currency === 'MYR'
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncs the editable input to the server value when the underlying project/rate changes, not a render-cascade risk
     setRateInput(project.exchangeRate.toString())
   }, [project.id, project.exchangeRate])
 
