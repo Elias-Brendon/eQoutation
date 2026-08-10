@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal } from '@renderer/components/common/Modal'
+import { FloatingPanel } from '@renderer/components/common/FloatingPanel'
 import { Input } from '@renderer/components/common/Input'
 import { CatalogItemPicker, type Step } from '@renderer/components/quotation/CatalogItemPicker'
 import {
@@ -60,11 +60,10 @@ export function AddItemModal({
   }
 
   return (
-    <Modal
+    <FloatingPanel
       open={open}
       onClose={onClose}
       title={step === 'search' ? 'Add item, find catalog item' : 'Add item, add to catalog'}
-      className="w-[560px] max-w-[90vw]"
     >
       <div className="mb-3 grid grid-cols-3 gap-2">
         <label className="flex flex-col gap-1 text-xs text-text-muted">
@@ -116,6 +115,6 @@ export function AddItemModal({
         submitErrorMessage={addItemWithNewCatalogItem.error?.message}
         onCancel={onClose}
       />
-    </Modal>
+    </FloatingPanel>
   )
 }

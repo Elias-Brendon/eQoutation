@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal } from '@renderer/components/common/Modal'
+import { FloatingPanel } from '@renderer/components/common/FloatingPanel'
 import { CatalogItemPicker, type Step } from '@renderer/components/quotation/CatalogItemPicker'
 import {
   useAddCatalogItemAndLink,
@@ -47,11 +47,10 @@ export function CatalogResolveModal({
   }
 
   return (
-    <Modal
+    <FloatingPanel
       open={open}
       onClose={onClose}
       title={step === 'search' ? 'Find catalog item' : 'Add to catalog'}
-      className="w-[560px] max-w-[90vw]"
     >
       <CatalogItemPicker
         isOpen={open}
@@ -70,6 +69,6 @@ export function CatalogResolveModal({
         submitErrorMessage={addAndLink.error?.message}
         onCancel={onClose}
       />
-    </Modal>
+    </FloatingPanel>
   )
 }
