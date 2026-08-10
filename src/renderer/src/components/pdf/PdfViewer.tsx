@@ -24,6 +24,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
+import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { AnnotationCanvas } from '@renderer/components/pdf/AnnotationCanvas'
 import { TextEntryOverlay } from '@renderer/components/pdf/TextEntryOverlay'
 import { useSldFile } from '@renderer/state/queries/useSldFile'
@@ -100,8 +101,10 @@ export function PdfViewer({
   const shapeStartRef = useRef<AnnotationPoint | null>(null)
   const shapeCurrentRef = useRef<AnnotationPoint | null>(null)
   // Ephemeral, renderer-only undo/redo — reset whenever the page changes.
-  // historyVersion exists purely to force a re-render after mutating these
-  // refs (so Undo/Redo button disabled-state reflects the current stack).
+  // The stacks themselves live in refs (no re-render needed just to push/pop
+  // an entry); canUndo/canRedo state mirrors "stack non-empty" and is updated
+  // at every mutation site, including inside async onDone callbacks, so the
+  // buttons' disabled state can't go stale waiting on an unrelated re-render.
   const historyRef = useRef<HistoryEntry[]>([])
   const redoRef = useRef<HistoryEntry[]>([])
   // Only one pdf.js render may target a canvas at a time — every render
@@ -151,7 +154,10 @@ export function PdfViewer({
     point: AnnotationPoint
     shapeType: TextLikeTool
   } | null>(null)
-  const [historyVersion, setHistoryVersion] = useState(0)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const [annotationToDelete, setAnnotationToDelete] = useState<Annotation | null>(null)
+  const [clearPageConfirmOpen, setClearPageConfirmOpen] = useState(false)
 
   const { data: annotations = [] } = useAnnotations(sldId, pageNumber)
   const createAnnotation = useCreateAnnotation()
@@ -162,13 +168,16 @@ export function PdfViewer({
   useEffect(() => {
     historyRef.current = []
     redoRef.current = []
-    setHistoryVersion((v) => v + 1)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets undo/redo availability when the selected page changes, not a render-cascade risk
+    setCanUndo(false)
+    setCanRedo(false)
   }, [sldId, pageNumber])
 
   const pushHistory = (entry: HistoryEntry): void => {
     historyRef.current.push(entry)
     redoRef.current = []
-    setHistoryVersion((v) => v + 1)
+    setCanUndo(true)
+    setCanRedo(false)
   }
 
   // Cross-reference jump from the quotation table (Stage 22). No-op when
@@ -176,8 +185,8 @@ export function PdfViewer({
   useEffect(() => {
     if (focusPage === undefined || !pdfDoc) return
     const clamped = Math.min(Math.max(focusPage, 1), pdfDoc.numPages)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- jumps to the cross-referenced page when focusPage changes, not a render-cascade risk
     setPageNumber(clamped)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusPage, pdfDoc])
 
   // Load the document whenever the file bytes change.
@@ -527,7 +536,11 @@ export function PdfViewer({
     const handleUp = (): void => {
       const start = shapeStartRef.current
       const end = shapeCurrentRef.current
-      if (start && end && (Math.abs(end.x - start.x) > 0.002 || Math.abs(end.y - start.y) > 0.002)) {
+      if (
+        start &&
+        end &&
+        (Math.abs(end.x - start.x) > 0.002 || Math.abs(end.y - start.y) > 0.002)
+      ) {
         createAnnotation.mutate(
           {
             sldId,
@@ -558,18 +571,24 @@ export function PdfViewer({
     // AI-authored pins are a permanent record (see design spec) — no delete,
     // no confirm dialog. The hover title already shows the flag message.
     if (annotation.authorType === 'ai') return
-    const label = annotation.commentText ?? 'this annotation'
-    const shouldDelete = window.confirm(`${label}\n\nDelete this comment?`)
-    if (!shouldDelete) return
-    deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
-    pushHistory({ op: 'delete', annotations: [annotation] })
+    setAnnotationToDelete(annotation)
+  }
+
+  const confirmDeleteAnnotation = (): void => {
+    if (!annotationToDelete) return
+    deleteAnnotation.mutate({ id: annotationToDelete.id, sldId, pageNumber })
+    pushHistory({ op: 'delete', annotations: [annotationToDelete] })
+    setAnnotationToDelete(null)
   }
 
   // Re-creates a batch of annotations (used by undo-a-delete and
   // redo-a-create) and invokes onDone with the newly-created rows — with
   // fresh ids, since recreated annotations don't need to reuse old ones —
   // once every recreation in the batch has resolved.
-  const recreateAnnotations = (source: Annotation[], onDone: (created: Annotation[]) => void): void => {
+  const recreateAnnotations = (
+    source: Annotation[],
+    onDone: (created: Annotation[]) => void
+  ): void => {
     const created: Annotation[] = []
     for (const annotation of source) {
       createAnnotation.mutate(
@@ -595,16 +614,18 @@ export function PdfViewer({
   const handleUndo = (): void => {
     const entry = historyRef.current.pop()
     if (!entry) return
-    setHistoryVersion((v) => v + 1)
+    setCanUndo(historyRef.current.length > 0)
 
     if (entry.op === 'create') {
       for (const annotation of entry.annotations) {
         deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
       }
       redoRef.current.push({ op: 'create', annotations: entry.annotations })
+      setCanRedo(true)
     } else {
       recreateAnnotations(entry.annotations, (created) => {
         redoRef.current.push({ op: 'delete', annotations: created })
+        setCanRedo(true)
       })
     }
   }
@@ -612,27 +633,33 @@ export function PdfViewer({
   const handleRedo = (): void => {
     const entry = redoRef.current.pop()
     if (!entry) return
-    setHistoryVersion((v) => v + 1)
+    setCanRedo(redoRef.current.length > 0)
 
     if (entry.op === 'create') {
       recreateAnnotations(entry.annotations, (created) => {
         historyRef.current.push({ op: 'create', annotations: created })
+        setCanUndo(true)
       })
     } else {
       for (const annotation of entry.annotations) {
         deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
       }
       historyRef.current.push({ op: 'delete', annotations: entry.annotations })
+      setCanUndo(true)
     }
   }
 
   const handleClearPage = (): void => {
     if (annotations.length === 0) return
-    if (!window.confirm(`Clear all ${annotations.length} annotation(s) on this page?`)) return
+    setClearPageConfirmOpen(true)
+  }
+
+  const confirmClearPage = (): void => {
     pushHistory({ op: 'delete', annotations: [...annotations] })
     for (const annotation of annotations) {
       deleteAnnotation.mutate({ id: annotation.id, sldId, pageNumber })
     }
+    setClearPageConfirmOpen(false)
   }
 
   if (isLoading) {
@@ -763,23 +790,10 @@ export function PdfViewer({
               />
             ))}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleUndo}
-            disabled={historyRef.current.length === 0}
-            title="Undo"
-            data-history-version={historyVersion}
-          >
+          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={!canUndo} title="Undo">
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRedo}
-            disabled={redoRef.current.length === 0}
-            title="Redo"
-          >
+          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={!canRedo} title="Redo">
             <Redo2 className="h-3.5 w-3.5" />
           </Button>
           <Button
@@ -878,6 +892,23 @@ export function PdfViewer({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={annotationToDelete !== null}
+        title="Delete annotation"
+        message={`${annotationToDelete?.commentText ?? 'this annotation'}\n\nDelete this comment?`}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteAnnotation}
+        onCancel={() => setAnnotationToDelete(null)}
+      />
+      <ConfirmDialog
+        open={clearPageConfirmOpen}
+        title="Clear annotations"
+        message={`Clear all ${annotations.length} annotation(s) on this page?`}
+        confirmLabel="Clear"
+        onConfirm={confirmClearPage}
+        onCancel={() => setClearPageConfirmOpen(false)}
+      />
     </div>
   )
 }
