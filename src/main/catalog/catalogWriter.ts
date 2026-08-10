@@ -1,3 +1,4 @@
+import { existsSync } from 'fs'
 import ExcelJS from 'exceljs'
 import { getCatalogStatus, findHeaderRow, columnFor } from './catalogLoader'
 import { insertCatalogItem, type CatalogItemInput } from '../db/repositories/catalogRepo'
@@ -11,6 +12,14 @@ export async function addCatalogItem(input: CatalogItemInput): Promise<CatalogIt
   const status = getCatalogStatus()
   if (!status.sourcePath) {
     throw new AppError('CAT_NO_SOURCE_FILE')
+  }
+  // status.sourcePath is whatever was last recorded at reload time — if the
+  // file has since been moved, renamed, or deleted on disk (e.g. replaced by
+  // a newer dated export), it's stale until the user reloads the catalog.
+  // Without this check, ExcelJS throws a raw ENOENT that safeHandle turns
+  // into an opaque "Unexpected error" (GEN-001) with no actionable message.
+  if (!existsSync(status.sourcePath)) {
+    throw new AppError('CAT_SOURCE_FILE_MISSING')
   }
 
   const workbook = new ExcelJS.Workbook()

@@ -48,6 +48,10 @@ export const ERROR_CODES = {
   CAT_NO_HEADER_ROW: { code: 'CAT-003', message: 'Catalog header row not found' },
   CAT_NO_XLSX_IN_DIR: { code: 'CAT-004', message: 'No catalog file found' },
   CAT_PARSE_FAILED: { code: 'CAT-005', message: 'Could not read catalog file' },
+  CAT_SOURCE_FILE_MISSING: {
+    code: 'CAT-006',
+    message: 'Catalog file has moved or been deleted, click Reload in the Catalog panel'
+  },
 
   // Quotation business rules
   QT_NOT_EXTRACTED: { code: 'QT-001', message: 'Run extraction first' },
