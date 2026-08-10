@@ -33,13 +33,16 @@ export function ProjectDetailsModal({
   const updateDetails = useUpdateProjectDetails()
 
   const [name, setName] = useState('')
+  const [label, setLabel] = useState('')
   const [coordinator, setCoordinator] = useState('')
 
   useEffect(() => {
     if (!project) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncs the editable fields to the server value when the selected project changes, not a render-cascade risk
     setName(project.name)
+    setLabel(project.substationLabel)
     setCoordinator(project.coordinator ?? '')
-  }, [project?.id, project?.name, project?.coordinator])
+  }, [project?.id, project?.name, project?.substationLabel, project?.coordinator])
 
   if (!project) return null
 
@@ -52,6 +55,12 @@ export function ProjectDetailsModal({
     updateDetails.mutate({ projectId: project.id, name: trimmed })
   }
 
+  const commitLabel = (): void => {
+    const trimmed = label.trim()
+    if (trimmed === project.substationLabel) return
+    updateDetails.mutate({ projectId: project.id, substationLabel: trimmed })
+  }
+
   const commitCoordinator = (): void => {
     const currentValue = project.coordinator ?? ''
     if (coordinator === currentValue) return
@@ -59,18 +68,24 @@ export function ProjectDetailsModal({
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Project Details"
-      className="w-[440px] max-w-[90vw]"
-    >
+    <Modal open={open} onClose={onClose} title="Project Details" className="w-[440px] max-w-[90vw]">
       <div className="flex flex-col gap-3">
         <Field label="Title">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+          />
+        </Field>
+
+        <Field label="Label (optional)">
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={commitLabel}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}

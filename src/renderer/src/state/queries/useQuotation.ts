@@ -15,10 +15,7 @@ import type {
 import { sldsQueryKey } from './useSlds'
 import { flagsQueryKey, openFlagCountsQueryKey } from './useFlags'
 
-export const quotationQueryKey = (sldId: string): readonly [string, string] => [
-  'quotation',
-  sldId
-]
+export const quotationQueryKey = (sldId: string): readonly [string, string] => ['quotation', sldId]
 const projectQuotationsQueryKey = (projectId: string): readonly [string, string] => [
   'quotations',
   projectId
@@ -144,6 +141,20 @@ export function useUpdateLineMargin(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ lineId, margin }) => window.api.quotations.updateLineMargin(lineId, margin),
+    onSuccess: (_data, { sldId }) => {
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    }
+  })
+}
+
+export function useUpdateLineQty(): UseMutationResult<
+  void,
+  Error,
+  { lineId: string; qty: number; sldId: string }
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ lineId, qty }) => window.api.quotations.updateLineQty(lineId, qty),
     onSuccess: (_data, { sldId }) => {
       queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
     }

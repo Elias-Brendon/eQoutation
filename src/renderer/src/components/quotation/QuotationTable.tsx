@@ -5,6 +5,7 @@ import { Button } from '@renderer/components/common/Button'
 import { Badge } from '@renderer/components/common/Badge'
 import { Tabs } from '@renderer/components/common/Tabs'
 import { ErrorMessage } from '@renderer/components/common/ErrorMessage'
+import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
 import { CatalogResolveModal } from '@renderer/components/quotation/CatalogResolveModal'
 import { ConfidenceResolveDrawer } from '@renderer/components/quotation/ConfidenceResolveDrawer'
 import { AddItemModal } from '@renderer/components/quotation/AddItemModal'
@@ -13,6 +14,7 @@ import {
   useQuotation,
   useRemoveQuotationLine,
   useUpdateLineMargin,
+  useUpdateLineQty,
   useUpdatePanelMargin
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
@@ -62,6 +64,45 @@ function MarginCell({ line, sldId }: MarginCellProps): React.JSX.Element {
       onDoubleClick={(e) => e.stopPropagation()}
       className="h-7 w-16 rounded border border-border-strong bg-surface px-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
     />
+  )
+}
+
+interface QtyCellProps {
+  line: QuotationLine
+  sldId: string
+}
+
+function QtyCell({ line, sldId }: QtyCellProps): React.JSX.Element {
+  const [value, setValue] = useState(line.qty.toString())
+  const updateQty = useUpdateLineQty()
+
+  const commit = (): void => {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed === line.qty) {
+      setValue(line.qty.toString())
+      return
+    }
+    updateQty.mutate({ lineId: line.id, qty: parsed, sldId })
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number"
+        step={1}
+        min={1}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        className="h-7 w-16 rounded border border-border-strong bg-surface px-1.5 text-xs text-text-primary focus:border-accent focus:outline-none"
+      />
+      <span className="text-text-secondary">{line.uom}</span>
+    </div>
   )
 }
 
@@ -150,6 +191,7 @@ export function QuotationTable({
   const [confidenceLine, setConfidenceLine] = useState<QuotationLine | null>(null)
   const [activeTab, setActiveTab] = useState<string>(FULL_BOM_TAB)
   const [addItemOpen, setAddItemOpen] = useState(false)
+  const [lineToRemove, setLineToRemove] = useState<QuotationLine | null>(null)
 
   // Tab selection is per-quotation, not persisted across switching SLDs/quotations.
   useEffect(() => {
@@ -182,8 +224,13 @@ export function QuotationTable({
 
   const handleRemoveLine = (e: React.MouseEvent, line: QuotationLine): void => {
     e.stopPropagation()
-    if (!window.confirm(`Remove "${line.description}" from the BOM?`)) return
-    removeLine.mutate({ lineId: line.id, sldId, projectId })
+    setLineToRemove(line)
+  }
+
+  const confirmRemoveLine = (): void => {
+    if (!lineToRemove) return
+    removeLine.mutate({ lineId: lineToRemove.id, sldId, projectId })
+    setLineToRemove(null)
   }
 
   const handleRowDoubleClick = (line: QuotationLine): void => {
@@ -370,7 +417,7 @@ export function QuotationTable({
                   </td>
                   <td className="px-3 py-2 text-text-secondary">{line.maker}</td>
                   <td className="px-3 py-2 text-text-secondary">
-                    {line.qty} {line.uom}
+                    <QtyCell line={line} sldId={sldId} />
                   </td>
                   <td className="px-3 py-2 text-text-secondary">
                     {currency}
@@ -425,6 +472,15 @@ export function QuotationTable({
           onFocusLine={onFocusLine}
         />
       )}
+
+      <ConfirmDialog
+        open={lineToRemove !== null}
+        title="Remove from BOM"
+        message={lineToRemove ? `Remove "${lineToRemove.description}" from the BOM?` : ''}
+        confirmLabel="Remove"
+        onConfirm={confirmRemoveLine}
+        onCancel={() => setLineToRemove(null)}
+      />
 
       {addItemOpen && (
         <AddItemModal

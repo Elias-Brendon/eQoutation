@@ -19,6 +19,7 @@ import {
   addQuotationLine,
   addQuotationLineWithNewCatalogItem,
   removeQuotationLine,
+  updateQuotationLine,
   type QuotationLineInput
 } from '../db/repositories/quotationsRepo'
 import {
@@ -198,42 +199,34 @@ export function registerQuotationsIpc(): void {
     return { ...quotation, excelFilePath: filePath }
   })
 
-  safeHandle(
-    IPC.quotationsApprove,
-    (_event, quotationId: string, comment?: string): Quotation => {
-      const quotation = getQuotationById(quotationId)
-      if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
+  safeHandle(IPC.quotationsApprove, (_event, quotationId: string, comment?: string): Quotation => {
+    const quotation = getQuotationById(quotationId)
+    if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
 
-      approveQuotation(quotationId)
-      updateSldStatus(quotation.sldId, 'done')
-      if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
+    approveQuotation(quotationId)
+    updateSldStatus(quotation.sldId, 'done')
+    if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
 
-      return getQuotationById(quotationId) as Quotation
-    }
-  )
+    return getQuotationById(quotationId) as Quotation
+  })
 
-  safeHandle(
-    IPC.quotationsReject,
-    (_event, quotationId: string, comment?: string): Quotation => {
-      const quotation = getQuotationById(quotationId)
-      if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
+  safeHandle(IPC.quotationsReject, (_event, quotationId: string, comment?: string): Quotation => {
+    const quotation = getQuotationById(quotationId)
+    if (!quotation) throw new AppError('DB_QUOTATION_NOT_FOUND')
 
-      rejectQuotation(quotationId)
-      updateSldStatus(quotation.sldId, 'rejected')
-      if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
+    rejectQuotation(quotationId)
+    updateSldStatus(quotation.sldId, 'rejected')
+    if (comment && comment.trim().length > 0) addComment(quotationId, comment.trim())
 
-      return getQuotationById(quotationId) as Quotation
-    }
-  )
+    return getQuotationById(quotationId) as Quotation
+  })
 
   safeHandle(
     IPC.quotationsAddComment,
     (_event, quotationId: string, body: string): QuotationComment => addComment(quotationId, body)
   )
 
-  safeHandle(IPC.quotationsListComments, (_event, quotationId: string) =>
-    listComments(quotationId)
-  )
+  safeHandle(IPC.quotationsListComments, (_event, quotationId: string) => listComments(quotationId))
 
   safeHandle(IPC.quotationsDelete, (_event, quotationId: string): void => {
     const quotation = getQuotationById(quotationId)
@@ -242,12 +235,13 @@ export function registerQuotationsIpc(): void {
     deleteQuotation(quotationId)
   })
 
-  safeHandle(
-    IPC.quotationLinesUpdateMargin,
-    (_event, lineId: string, margin: number): void => {
-      updateQuotationLineMargin(lineId, margin)
-    }
-  )
+  safeHandle(IPC.quotationLinesUpdateMargin, (_event, lineId: string, margin: number): void => {
+    updateQuotationLineMargin(lineId, margin)
+  })
+
+  safeHandle(IPC.quotationLinesUpdateQty, (_event, lineId: string, qty: number): void => {
+    updateQuotationLine(lineId, { qty })
+  })
 
   safeHandle(
     IPC.quotationPanelsUpdateMargin,

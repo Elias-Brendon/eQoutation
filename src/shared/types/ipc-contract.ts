@@ -51,6 +51,7 @@ export const IPC = {
   quotationsReject: 'quotations:reject',
   quotationsDelete: 'quotations:delete',
   quotationLinesUpdateMargin: 'quotationLines:updateMargin',
+  quotationLinesUpdateQty: 'quotationLines:updateQty',
   quotationLinesAdd: 'quotationLines:add',
   quotationLinesAddWithNewCatalogItem: 'quotationLines:addWithNewCatalogItem',
   quotationLinesRemove: 'quotationLines:remove',

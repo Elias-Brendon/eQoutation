@@ -127,8 +127,7 @@ const api = {
     search: (query: string, limit?: number): Promise<CatalogItem[]> =>
       ipcRenderer.invoke(IPC.catalogSearch, query, limit),
     openFolder: (): Promise<void> => ipcRenderer.invoke(IPC.catalogOpenFolder),
-    listDistinctMakers: (): Promise<string[]> =>
-      ipcRenderer.invoke(IPC.catalogListDistinctMakers)
+    listDistinctMakers: (): Promise<string[]> => ipcRenderer.invoke(IPC.catalogListDistinctMakers)
   },
   ai: {
     extractSld: (sldId: string, options?: { force?: boolean }): Promise<Extraction> =>
@@ -165,6 +164,8 @@ const api = {
       ipcRenderer.invoke(IPC.quotationsDelete, quotationId),
     updateLineMargin: (lineId: string, margin: number): Promise<void> =>
       ipcRenderer.invoke(IPC.quotationLinesUpdateMargin, lineId, margin),
+    updateLineQty: (lineId: string, qty: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.quotationLinesUpdateQty, lineId, qty),
     updatePanelMargin: (quotationId: string, panelName: string, margin: number): Promise<void> =>
       ipcRenderer.invoke(IPC.quotationPanelsUpdateMargin, quotationId, panelName, margin),
     addLine: (
@@ -178,12 +179,7 @@ const api = {
       catalogInput: NewCatalogItemInput,
       input: AddQuotationLineInput
     ): Promise<QuotationLine> =>
-      ipcRenderer.invoke(
-        IPC.quotationLinesAddWithNewCatalogItem,
-        quotationId,
-        catalogInput,
-        input
-      ),
+      ipcRenderer.invoke(IPC.quotationLinesAddWithNewCatalogItem, quotationId, catalogInput, input),
     removeLine: (lineId: string): Promise<void> =>
       ipcRenderer.invoke(IPC.quotationLinesRemove, lineId)
   },

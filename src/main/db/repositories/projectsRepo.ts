@@ -63,9 +63,9 @@ export function getProjectById(id: string): Project | null {
 }
 
 function nextQuotationNumber(): string {
-  const rows = getDb()
-    .prepare('SELECT quotation_number FROM projects')
-    .all() as { quotation_number: string }[]
+  const rows = getDb().prepare('SELECT quotation_number FROM projects').all() as {
+    quotation_number: string
+  }[]
   const maxN = rows.reduce((max, row) => {
     const match = /^PRJ-(\d+)$/.exec(row.quotation_number)
     const n = match ? parseInt(match[1], 10) : 0
@@ -153,6 +153,7 @@ export function updateProjectDetails(
   id: string,
   patch: Partial<{
     name: string
+    substationLabel: string
     sector: string | null
     company: string | null
     coordinator: string | null
@@ -164,6 +165,10 @@ export function updateProjectDetails(
   if (patch.name !== undefined) {
     fields.push('name = @name')
     params.name = patch.name
+  }
+  if (patch.substationLabel !== undefined) {
+    fields.push('substation_label = @substation_label')
+    params.substation_label = patch.substationLabel
   }
   if (patch.sector !== undefined) {
     fields.push('sector = @sector')

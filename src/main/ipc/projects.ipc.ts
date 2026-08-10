@@ -28,9 +28,8 @@ function currentUsername(): string | null {
 
 export function registerProjectsIpc(): void {
   safeHandle(IPC.projectsList, () => listProjects())
-  safeHandle(
-    IPC.projectsCreate,
-    (_event, input: CreateProjectInput): Project => createProject(input, currentUsername())
+  safeHandle(IPC.projectsCreate, (_event, input: CreateProjectInput): Project =>
+    createProject(input, currentUsername())
   )
   safeHandle(
     IPC.projectsUpdateCurrencySettings,
@@ -46,16 +45,15 @@ export function registerProjectsIpc(): void {
     (_event, input: UpdateProjectAiModelOverrideInput): Project =>
       updateProjectAiModelOverride(input.projectId, input.aiModelOverride)
   )
-  safeHandle(
-    IPC.projectsUpdateDetails,
-    (_event, input: UpdateProjectDetailsInput): Project =>
-      updateProjectDetails(input.projectId, {
-        name: input.name,
-        sector: input.sector,
-        company: input.company,
-        coordinator: input.coordinator,
-        status: input.status
-      })
+  safeHandle(IPC.projectsUpdateDetails, (_event, input: UpdateProjectDetailsInput): Project =>
+    updateProjectDetails(input.projectId, {
+      name: input.name,
+      substationLabel: input.substationLabel,
+      sector: input.sector,
+      company: input.company,
+      coordinator: input.coordinator,
+      status: input.status
+    })
   )
   safeHandle(IPC.projectsDelete, (_event, projectId: string): void => {
     const project = getProjectById(projectId)

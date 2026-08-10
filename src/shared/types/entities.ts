@@ -145,6 +145,7 @@ export interface UpdateProjectAiModelOverrideInput {
 export interface UpdateProjectDetailsInput {
   projectId: string
   name?: string
+  substationLabel?: string
   sector?: string | null
   company?: string | null
   coordinator?: string | null
