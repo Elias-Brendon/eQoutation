@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.9](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.8...v0.1.9) (2026-08-10)
+
+### Features
+
+- editable project label, editable line quantity, in-app delete confirmation ([1f855ab](https://github.com/Elias-Brendon/Qoutation/commit/1f855abad07bb395d8585db26375c366020656b8))
+- make catalog search panels non-modal, draggable floating panels ([c2903d9](https://github.com/Elias-Brendon/Qoutation/commit/c2903d98deff54296ed5b81e64a108468b609ad3))
+
+### Bug Fixes
+
+- rematch catalog item on flag correction; fix annotation dialog and undo/redo bugs ([936f10a](https://github.com/Elias-Brendon/Qoutation/commit/936f10a6ef66eb059d1899c286c62093a9679995))
+- surface a clear error when the catalog source file is missing (CAT-006) ([0a29812](https://github.com/Elias-Brendon/Qoutation/commit/0a298121e191a44e1e492d76697d234ae859baa6))
+
 ### [0.1.8](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.7...v0.1.8) (2026-08-07)
 
 ### Features
