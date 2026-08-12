@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Flag as FlagIcon, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@renderer/lib/cn'
 import { Button } from '@renderer/components/common/Button'
@@ -10,8 +10,8 @@ import { CatalogResolveModal } from '@renderer/components/quotation/CatalogResol
 import { ConfidenceResolveDrawer } from '@renderer/components/quotation/ConfidenceResolveDrawer'
 import { AddItemModal } from '@renderer/components/quotation/AddItemModal'
 import {
+  useEffectiveQuotation,
   useGenerateQuotation,
-  useQuotation,
   useRemoveQuotationLine,
   useUpdateLineMargin,
   useUpdateLineQty,
@@ -20,6 +20,7 @@ import {
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
 import { useSettings } from '@renderer/state/queries/useSettings'
 import { useProjects } from '@renderer/state/queries/useProjects'
+import { useUiStore } from '@renderer/state/useUiStore'
 import { currencySymbol } from '@shared/constants/currencies'
 import { convertFromBase } from '@shared/lib/currencyConversion'
 import type { Flag, QuotationLine } from '@shared/types/entities'
@@ -38,7 +39,14 @@ interface MarginCellProps {
 
 function MarginCell({ line, sldId }: MarginCellProps): React.JSX.Element {
   const [value, setValue] = useState(line.margin.toString())
+  const isFocusedRef = useRef(false)
   const updateMargin = useUpdateLineMargin()
+
+  useEffect(() => {
+    // Resyncs the editable input to the server value when the line's margin
+    // changes elsewhere (e.g. a panel-level bulk update), unless mid-edit.
+    if (!isFocusedRef.current) setValue(line.margin.toString())
+  }, [line.id, line.margin])
 
   const commit = (): void => {
     const parsed = Number(value)
@@ -56,7 +64,13 @@ function MarginCell({ line, sldId }: MarginCellProps): React.JSX.Element {
       min={0}
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      onBlur={commit}
+      onFocus={() => {
+        isFocusedRef.current = true
+      }}
+      onBlur={() => {
+        isFocusedRef.current = false
+        commit()
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
       }}
@@ -74,7 +88,14 @@ interface QtyCellProps {
 
 function QtyCell({ line, sldId }: QtyCellProps): React.JSX.Element {
   const [value, setValue] = useState(line.qty.toString())
+  const isFocusedRef = useRef(false)
   const updateQty = useUpdateLineQty()
+
+  useEffect(() => {
+    // Resyncs the editable input to the server value when the line's qty
+    // changes elsewhere, unless mid-edit.
+    if (!isFocusedRef.current) setValue(line.qty.toString())
+  }, [line.id, line.qty])
 
   const commit = (): void => {
     const parsed = Number(value)
@@ -93,7 +114,13 @@ function QtyCell({ line, sldId }: QtyCellProps): React.JSX.Element {
         min={1}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        onBlur={commit}
+        onFocus={() => {
+          isFocusedRef.current = true
+        }}
+        onBlur={() => {
+          isFocusedRef.current = false
+          commit()
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
@@ -177,8 +204,9 @@ export function QuotationTable({
   onFocusLine,
   onRevealLineAnnotation
 }: QuotationTableProps): React.JSX.Element {
-  const { data: quotation, isLoading } = useQuotation(sldId)
+  const { data: quotation, isLoading } = useEffectiveQuotation(sldId)
   const generate = useGenerateQuotation()
+  const clearQuotationPin = useUiStore((s) => s.clearQuotation)
   const removeLine = useRemoveQuotationLine()
   const { data: flags = [] } = useFlagsByQuotation(quotation?.id ?? null)
   const { data: settings } = useSettings()
@@ -192,6 +220,7 @@ export function QuotationTable({
   const [activeTab, setActiveTab] = useState<string>(FULL_BOM_TAB)
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [lineToRemove, setLineToRemove] = useState<QuotationLine | null>(null)
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false)
 
   // Tab selection is per-quotation, not persisted across switching SLDs/quotations.
   useEffect(() => {
@@ -231,6 +260,11 @@ export function QuotationTable({
     if (!lineToRemove) return
     removeLine.mutate({ lineId: lineToRemove.id, sldId, projectId })
     setLineToRemove(null)
+  }
+
+  const confirmRegenerate = (): void => {
+    setRegenerateConfirmOpen(false)
+    generate.mutate(sldId, { onSuccess: clearQuotationPin })
   }
 
   const handleRowDoubleClick = (line: QuotationLine): void => {
@@ -325,7 +359,7 @@ export function QuotationTable({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => generate.mutate(sldId)}
+            onClick={() => setRegenerateConfirmOpen(true)}
             disabled={generate.isPending}
           >
             {generate.isPending ? (
@@ -480,6 +514,15 @@ export function QuotationTable({
         confirmLabel="Remove"
         onConfirm={confirmRemoveLine}
         onCancel={() => setLineToRemove(null)}
+      />
+
+      <ConfirmDialog
+        open={regenerateConfirmOpen}
+        title="Re-generate quotation"
+        message="This rebuilds the BOM from the latest extraction and resets margins to the default. Manual edits on this quotation, including custom margins, added or removed items, and resolved flags, will be lost. Continue?"
+        confirmLabel="Re-generate"
+        onConfirm={confirmRegenerate}
+        onCancel={() => setRegenerateConfirmOpen(false)}
       />
 
       {addItemOpen && (

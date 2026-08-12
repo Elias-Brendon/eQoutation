@@ -22,8 +22,8 @@ import { FlagsPanel } from '@renderer/components/quotation/FlagsPanel'
 import {
   useAddQuotationComment,
   useApproveQuotation,
+  useEffectiveQuotation,
   useExportQuotation,
-  useQuotation,
   useRejectQuotation
 } from '@renderer/state/queries/useQuotation'
 import { useFlagsByQuotation } from '@renderer/state/queries/useFlags'
@@ -67,7 +67,7 @@ export function CenterPanel({
   panelMode,
   onPanelModeChange
 }: CenterPanelProps): React.JSX.Element {
-  const { data: quotation } = useQuotation(sld?.id ?? null)
+  const { data: quotation } = useEffectiveQuotation(sld?.id ?? null)
   const { data: settings } = useSettings()
   const exportQuotation = useExportQuotation()
   const approveQuotation = useApproveQuotation()

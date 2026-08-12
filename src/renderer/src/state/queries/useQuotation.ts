@@ -14,8 +14,14 @@ import type {
 } from '@shared/types/entities'
 import { sldsQueryKey } from './useSlds'
 import { flagsQueryKey, openFlagCountsQueryKey } from './useFlags'
+import { useUiStore } from '@renderer/state/useUiStore'
 
 export const quotationQueryKey = (sldId: string): readonly [string, string] => ['quotation', sldId]
+const quotationByIdQueryKey = (quotationId: string): readonly [string, string, string] => [
+  'quotation',
+  'byId',
+  quotationId
+]
 const projectQuotationsQueryKey = (projectId: string): readonly [string, string] => [
   'quotations',
   projectId
@@ -31,6 +37,31 @@ export function useQuotation(sldId: string | null): UseQueryResult<Quotation | n
     queryFn: () => window.api.quotations.getBySld(sldId as string),
     enabled: sldId !== null
   })
+}
+
+export function useQuotationById(quotationId: string | null): UseQueryResult<Quotation | null> {
+  return useQuery({
+    queryKey: quotationByIdQueryKey(quotationId ?? ''),
+    queryFn: () => window.api.quotations.getById(quotationId as string),
+    enabled: quotationId !== null
+  })
+}
+
+// Resolves to a specific historical quotation when the sidebar history list
+// has pinned one for this SLD (selectedQuotationId in useUiStore), otherwise
+// falls back to the latest quotation for the SLD. Shared by QuotationTable
+// and CenterPanel so both agree on which quotation is "active": editing,
+// approving, or exporting a pinned historical quotation must not silently
+// act on the newest one instead.
+export function useEffectiveQuotation(sldId: string | null): UseQueryResult<Quotation | null> {
+  const selectedSldId = useUiStore((s) => s.selectedSldId)
+  const selectedQuotationId = useUiStore((s) => s.selectedQuotationId)
+  const pinnedId = sldId !== null && sldId === selectedSldId ? selectedQuotationId : null
+
+  const latest = useQuotation(pinnedId ? null : sldId)
+  const pinned = useQuotationById(pinnedId)
+
+  return pinnedId ? pinned : latest
 }
 
 export function useQuotationsByProject(projectId: string | null): UseQueryResult<Quotation[]> {
@@ -63,7 +94,8 @@ export function useExportQuotation(): UseMutationResult<
   return useMutation({
     mutationFn: ({ quotationId }) => window.api.quotations.export(quotationId),
     onSuccess: (quotation, { sldId }) => {
-      queryClient.setQueryData(quotationQueryKey(sldId), quotation)
+      queryClient.setQueryData(quotationByIdQueryKey(quotation.id), quotation)
+      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
     }
   })
 }
@@ -80,7 +112,8 @@ function invalidateAfterReview(
   quotation: Quotation,
   variables: QuotationReviewVariables
 ): void {
-  queryClient.setQueryData(quotationQueryKey(variables.sldId), quotation)
+  queryClient.setQueryData(quotationByIdQueryKey(quotation.id), quotation)
+  queryClient.invalidateQueries({ queryKey: quotationQueryKey(variables.sldId) })
   queryClient.invalidateQueries({ queryKey: ['quotations'] })
   queryClient.invalidateQueries({ queryKey: sldsQueryKey(variables.projectId) })
 }
@@ -141,8 +174,8 @@ export function useUpdateLineMargin(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ lineId, margin }) => window.api.quotations.updateLineMargin(lineId, margin),
-    onSuccess: (_data, { sldId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
     }
   })
 }
@@ -155,8 +188,8 @@ export function useUpdateLineQty(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ lineId, qty }) => window.api.quotations.updateLineQty(lineId, qty),
-    onSuccess: (_data, { sldId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
     }
   })
 }
@@ -170,8 +203,8 @@ export function useUpdatePanelMargin(): UseMutationResult<
   return useMutation({
     mutationFn: ({ quotationId, panelName, margin }) =>
       window.api.quotations.updatePanelMargin(quotationId, panelName, margin),
-    onSuccess: (_data, { sldId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
     }
   })
 }
@@ -185,8 +218,8 @@ export function useAddQuotationLine(): UseMutationResult<
   return useMutation({
     mutationFn: ({ quotationId, catalogItemId, input }) =>
       window.api.quotations.addLine(quotationId, catalogItemId, input),
-    onSuccess: (_line, { sldId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
     }
   })
 }
@@ -205,8 +238,8 @@ export function useAddQuotationLineWithNewCatalogItem(): UseMutationResult<
   return useMutation({
     mutationFn: ({ quotationId, catalogInput, input }) =>
       window.api.quotations.addLineWithNewCatalogItem(quotationId, catalogInput, input),
-    onSuccess: (_line, { sldId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
       queryClient.invalidateQueries({ queryKey: ['catalog'] })
     }
   })
@@ -220,8 +253,8 @@ export function useRemoveQuotationLine(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ lineId }) => window.api.quotations.removeLine(lineId),
-    onSuccess: (_data, { sldId, projectId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: (_data, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
       queryClient.invalidateQueries({ queryKey: openFlagCountsQueryKey(projectId) })
     }
   })
@@ -235,8 +268,14 @@ export function useDeleteQuotation(): UseMutationResult<
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ quotationId }) => window.api.quotations.delete(quotationId),
-    onSuccess: (_data, { sldId, projectId }) => {
-      queryClient.invalidateQueries({ queryKey: quotationQueryKey(sldId) })
+    onSuccess: (_data, { quotationId, projectId }) => {
+      // If the deleted quotation was pinned as the active selection, drop the
+      // pin so the view falls back to whatever is now latest for the SLD
+      // instead of pointing at a quotation that no longer exists.
+      if (useUiStore.getState().selectedQuotationId === quotationId) {
+        useUiStore.getState().clearQuotation()
+      }
+      queryClient.invalidateQueries({ queryKey: ['quotation'] })
       queryClient.invalidateQueries({ queryKey: ['quotations'] })
       queryClient.invalidateQueries({ queryKey: openFlagCountsQueryKey(projectId) })
     }

@@ -74,12 +74,14 @@ export function CatalogItemPicker({
     isOpen && step === 'search'
   )
 
+  const computedUnitPrice = (form.listPrice ?? 0) * (form.discountFactor ?? 1)
+
   const handleAddSubmit = (): void => {
     if (!form.sku.trim() || !form.description.trim()) return
     onSubmitNew({
       ...form,
       listPrice: convertToBase(form.listPrice ?? 0, exchangeRate),
-      unitPrice: convertToBase(form.unitPrice ?? 0, exchangeRate)
+      unitPrice: convertToBase(computedUnitPrice, exchangeRate)
     })
   }
 
@@ -209,13 +211,10 @@ export function CatalogItemPicker({
             onChange={(e) => setForm({ ...form, listPrice: Number(e.target.value) })}
           />
         </Field>
-        <Field label={`Unit price (cost) * (${currency})`}>
-          <Input
-            type="number"
-            step="0.01"
-            value={form.unitPrice}
-            onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })}
-          />
+        <Field label={`Unit price (cost) (${currency})`}>
+          <div className="flex h-9 w-full items-center rounded-md border border-border bg-surface-hover px-3 text-sm text-text-secondary">
+            {computedUnitPrice.toFixed(2)}
+          </div>
         </Field>
       </div>
       {submitErrorMessage && (

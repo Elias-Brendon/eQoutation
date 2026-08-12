@@ -8,7 +8,15 @@ import type { CatalogItem } from '@shared/types/entities'
 // Appends a new row to the real source .xlsx (so it survives a future
 // catalog reload) and upserts the DB cache directly — no full reload needed
 // for the new item to be immediately usable.
-export async function addCatalogItem(input: CatalogItemInput): Promise<CatalogItem> {
+export async function addCatalogItem(rawInput: CatalogItemInput): Promise<CatalogItem> {
+  // Unit price is always list price times discount factor, never trusted as
+  // a client-supplied value, mirroring how quotation totals are recomputed
+  // server-side rather than accepted as-is.
+  const input: CatalogItemInput = {
+    ...rawInput,
+    unitPrice: (rawInput.listPrice ?? 0) * (rawInput.discountFactor ?? 1)
+  }
+
   const status = getCatalogStatus()
   if (!status.sourcePath) {
     throw new AppError('CAT_NO_SOURCE_FILE')

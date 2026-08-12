@@ -45,6 +45,7 @@ export const IPC = {
   aiExtractionProgress: 'ai:extractionProgress',
   quotationsGenerate: 'quotations:generate',
   quotationsGetBySld: 'quotations:getBySld',
+  quotationsGetById: 'quotations:getById',
   quotationsListByProject: 'quotations:listByProject',
   quotationsExport: 'quotations:export',
   quotationsApprove: 'quotations:approve',

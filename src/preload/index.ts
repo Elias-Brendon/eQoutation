@@ -148,6 +148,8 @@ const api = {
       ipcRenderer.invoke(IPC.quotationsGenerate, sldId),
     getBySld: (sldId: string): Promise<Quotation | null> =>
       ipcRenderer.invoke(IPC.quotationsGetBySld, sldId),
+    getById: (quotationId: string): Promise<Quotation | null> =>
+      ipcRenderer.invoke(IPC.quotationsGetById, quotationId),
     listByProject: (projectId: string): Promise<Quotation[]> =>
       ipcRenderer.invoke(IPC.quotationsListByProject, projectId),
     export: (quotationId: string): Promise<Quotation> =>

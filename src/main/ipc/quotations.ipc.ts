@@ -180,6 +180,8 @@ export function registerQuotationsIpc(): void {
 
   safeHandle(IPC.quotationsGetBySld, (_event, sldId: string) => getLatestQuotationForSld(sldId))
 
+  safeHandle(IPC.quotationsGetById, (_event, quotationId: string) => getQuotationById(quotationId))
+
   safeHandle(IPC.quotationsListByProject, (_event, projectId: string) =>
     listQuotationsByProject(projectId)
   )
