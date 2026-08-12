@@ -5,15 +5,15 @@
 export const AVAILABLE_AI_MODELS = [
   {
     id: 'claude-sonnet-5',
-    label: 'Claude Sonnet 5 — recommended (accuracy/cost balance)'
+    label: 'Claude Sonnet 5 recommended (accuracy/cost balance)'
   },
   {
     id: 'claude-opus-4-8',
-    label: 'Claude Opus 4.8 — highest accuracy, slower/costlier'
+    label: 'Claude Opus 4.8 highest accuracy, slower/costlier'
   },
   {
     id: 'claude-haiku-4-5',
-    label: 'Claude Haiku 4.5 — fastest/cheapest, lower accuracy'
+    label: 'Claude Haiku 4.5 fastest/cheapest, lower accuracy'
   }
 ] as const
 
