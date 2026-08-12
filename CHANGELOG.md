@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.10](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.9...v0.1.10) (2026-08-12)
+
+### Features
+
+- quotation history switching, auto-priced catalog items, safer regen ([4756477](https://github.com/Elias-Brendon/Qoutation/commit/4756477af2f21c24c49f4370976ba4c9bc380030))
+
 ### [0.1.9](https://github.com/Elias-Brendon/Qoutation/compare/v0.1.8...v0.1.9) (2026-08-10)
 
 ### Features
